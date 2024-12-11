@@ -2,7 +2,7 @@
 
 # Raspi Time Lapse from sunrise to sunset with text overlay, 
 # Backup on remote Linux server, upload to YouTube.
-# Version 3.3, updated by Oliver.
+# Version 3.4, updated by Oliver.
 
 # Please see credits, sources, and help on GitHub.
 # Note: For 1K (HD) resolution at 1-second intervals and 25 fps, 
@@ -24,8 +24,9 @@ TIZO="2"                                            # Timezone offset
 TDIR="/tmp"                                         # Temporary directory
 FPATH="/opt/timelapse/Roboto-Regular.ttf"           # Path to font file
 WFILE="/opt/timelapse/weather.txt"                  # Path to weather information file
+ULSERVER="picam@plexxor.dmz.t9t.ch:/multimedia/timelapse/" # full ssh path to upload path user@server:/path/to/store
 
-debug=0                                             # Enable debug mode
+debug=0                                             # Enable debug mode. 1 = on; 0 = off
 z=2                                                 # Number of pictures for debug mode
 fupload=0                                           # Force upload in debug mode
 
@@ -164,13 +165,13 @@ fi
 echo "** OUTRO"
 if [ $debug -eq 0 ] || [ $fupload -eq 1 ]; then
     # Upload video to server
-    scp "$wdir/$finfile.mp4" picam@plexxor.dmz.t9t.ch:/multimedia/timelapse/
+    scp "$wdir/$finfile.mp4" "${ULSERVER}"
 
     # Prepare YouTube metadata
     YDESC="Zeitraffer von Solothurn, Schweiz. Von Sonnenaufgang ${tsunrise} (-${offSTART}h) bis Sonnenuntergang ${tsunset} (+${offEND}h) sind \
     $i Bilder alle $INTERVAL Sekunde(n) in $resxy auf dem Raspberry Pi 3 erstellt worden. Framerate ist ${fr}. \
     Das Video wird automatisch generiert und auf Youtube geladen. \
-    Details auf Github: https://github.com/noviceiii/RaspiTimeLaps."
+    Details auf Github: https://github.com/noviceiii/timelapse."
 
     # YouTube upload
     /usr/local/bin/youtube-upload \
