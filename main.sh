@@ -24,7 +24,7 @@ TIZO="2"                                            # Timezone offset
 TDIR="/tmp"                                         # Temporary directory
 FPATH="/opt/timelapse/Roboto-Regular.ttf"           # Path to font file
 WFILE="/opt/timelapse/weather.txt"                  # Path to weather information file
-ULSERVER="picam@plexxor.dmz.t9t.ch:/multimedia/timelapse/" # full ssh path to upload path user@server:/path/to/store
+ULSERVER="user@server:/path/to/store/"              # full ssh path to upload path user@server:/path/to/store/
 
 debug=0                                             # Enable debug mode. 1 = on; 0 = off
 z=2                                                 # Number of pictures for debug mode
