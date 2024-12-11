@@ -11,6 +11,8 @@
 #
 #   Change below values accorings your needs.
 
+#   CODE BEFORE OPTIMISATION
+
 
 INTERVAL=15                                         # INT. take picture in that interval in seconds
 offSTART=1                                          # INT. Offset Hour to start before sunrise

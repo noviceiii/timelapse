@@ -1,1 +1,8 @@
 *.txt
+*.md
+*.log
+*.
+LICENCE
+
+# allow
+!*.example
