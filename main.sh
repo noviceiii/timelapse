@@ -36,9 +36,9 @@ tnow1=$(date +%H:%M:%S)
 snow1=$(date +%s -d "$tnow1")
 
 # Get sunrise and sunset times
-sunrisesunset=$(hdate -q -s -S -l $LONG -L $LAT -z$TIZO)
-tsunrise=$(echo "$sunrisesunset" | awk '{print $6}')
-tsunset=$(echo "$sunrisesunset" | awk '{print $8}')
+sunrisesunset=`hdate -q -s -S -l $LONG -L $LAT -z$TIZO`
+tsunrise=`echo $sunrisesunset | awk '{ print $6}'`
+tsunset=`echo $sunrisesunset | awk '{ print $8}'`
 
 # Convert sunrise and sunset to seconds
 ssunrise=$(date +%s -d "$tsunrise")
