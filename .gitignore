@@ -1,8 +1,10 @@
+# ignore
 *.txt
 *.md
 *.log
-*.
+.*
 LICENCE
+config.cfg
 
 # allow
-!*.example
+!README.md

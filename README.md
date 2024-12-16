@@ -1,6 +1,7 @@
 # Raspi Time Lapse Script
 
 A Bash script for Raspberry Pi that creates time-lapse videos from sunrise to sunset, with text overlays, backup, and YouTube upload.
+See it in action here: https://www.youtube.com/watch?v=RmAjS0czRXU&list=PLcnGcU-Z-RJ1uRxLbBiHb2feVr6tQzJVj .
 
 ## Overview
 
@@ -19,12 +20,14 @@ This script:
 - **ffmpeg** for video and image processing
 - **raspistill** for capturing images
 - **hdate** for calculating sun times
-- **youtube-upload** for YouTube uploads
+- **youtube-upload** for YouTube uploads 
 - **scp** for remote backup
 
 ## Installation
+Reneame and adjust config.example.cfg
 
 1. **Install required software:**
    ```bash
    sudo apt-get update
    sudo apt-get install -y ffmpeg hdate scp
+   pip install youtube-upload
