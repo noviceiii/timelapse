@@ -181,6 +181,8 @@ echo "** OUTRO"
 if [ $SCP_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ]; then
     echo "Uploading video to remote server..."
     scp "$wdir/$finfile.mp4" "$SCP_SERVER_PATH"
+else
+    echo "No remove server upload since upload is disabled or debug mode is enabled."
 fi
 
 # Optional YouTube upload
@@ -203,6 +205,8 @@ if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ]; then
     --location latitude=$LATITUDE,longitude=$LONGITUDE \
     --embeddable=True \
     "$wdir/$finfile.mp4"
+else
+    echo "No youtube upload since upload is disabled or debug mode is enabled."
 fi
 
 # Cleanup
