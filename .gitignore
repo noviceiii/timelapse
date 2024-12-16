@@ -4,7 +4,7 @@
 *.log
 .*
 LICENCE
-config.cfg
+# config.cfg
 
 # allow
 !README.md

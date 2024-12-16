@@ -5,7 +5,7 @@
 # @Version 4.0, 16.12.2024.
 
 # Configuration file path
-CONFIG_FILE="/opt/timelapse/config.cfg"                       # Pfad zur Konfigurationsdatei anpassen
+CONFIG_FILE="/opt/timelapse/config.cfg"                       # set path to config file
 
 # Read security-relevant variables from config file
 if [ -f "$CONFIG_FILE" ]; then
@@ -14,11 +14,6 @@ else
     echo "Configuration file $CONFIG_FILE not found. Exiting."
     exit 1
 fi
-
-# YouTube description text
-YDESC="Zeitraffer von Solothurn, Schweiz. Von Sonnenaufgang %s (-%dh) bis Sonnenuntergang %s (+%dh) sind \
-%s Bilder alle $INTERVAL Sekunde(n) in %sx%s auf dem Raspberry Pi 3 erstellt worden. Framerate ist %s. \
-Das Video wird automatisch generiert und auf Youtube geladen."
 
 i=1                                                 # Picture counter
 fin=1                                               # Flag to continue loop
