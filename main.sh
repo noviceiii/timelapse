@@ -15,13 +15,13 @@ else
     exit 1
 fi
 
-i=1                                                 # Picture counter
-fin=1                                               # Flag to continue loop
-
 # ------------------------------------------------------------------------------------------------------------------------------------------- 
 
 #### INIT ####
 echo "** INIT"
+
+i=1                                                 # Picture counter
+fin=1                                               # Flag to continue loop
 
 # Timestamp for filenames and directories
 ts_path=$(date +%Y-%m-%d_%H%M%S)
@@ -178,13 +178,13 @@ fi
 echo "** OUTRO"
 
 # Optional SCP upload
-if [ $SCP_UPLOAD_ENABLED -eq 1 ]; then
+if [ $SCP_UPLOAD_ENABLED -eq 1 ] && [$debug -eq 0]; then
     echo "Uploading video to remote server..."
     scp "$wdir/$finfile.mp4" "$SCP_SERVER_PATH"
 fi
 
 # Optional YouTube upload
-if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ]; then
+if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && [$debug -eq 0]; then
     echo "Preparing to upload to YouTube..."
     # Prepare YouTube metadata
     YDESC=$(printf "$YDESC" "$tsunrise" "$offSTART" "$tsunset" "$offEND" "$i" "$RESW" "$RESH" "$fr")
