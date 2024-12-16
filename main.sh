@@ -5,7 +5,7 @@
 # @Version 4.0, 16.12.2024.
 
 # Configuration file path
-CONFIG_FILE="/opt/timelapse/config.cfg"                       # set path to config file
+CONFIG_FILE="config.cfg"                       # set path to config file
 
 # Read security-relevant variables from config file
 if [ -f "$CONFIG_FILE" ]; then
@@ -178,13 +178,13 @@ fi
 echo "** OUTRO"
 
 # Optional SCP upload
-if [ $SCP_UPLOAD_ENABLED -eq 1 ] && [$debug -eq 0]; then
+if [ $SCP_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ]; then
     echo "Uploading video to remote server..."
     scp "$wdir/$finfile.mp4" "$SCP_SERVER_PATH"
 fi
 
 # Optional YouTube upload
-if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && [$debug -eq 0]; then
+if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ]; then
     echo "Preparing to upload to YouTube..."
     # Prepare YouTube metadata
     YDESC=$(printf "$YDESC" "$tsunrise" "$offSTART" "$tsunset" "$offEND" "$i" "$RESW" "$RESH" "$fr")
