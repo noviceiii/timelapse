@@ -3,6 +3,7 @@
 # Raspi Time Lapse from sunrise to sunset with text overlay,
 # Backup on remote Linux server, upload to YouTube.
 # @Version 4.0, 16.12.2024.
+# - .1 - addes support for libcamera
 
 # Configuration file path
 CONFIG_FILE="config.cfg"                       # set path to config file
@@ -122,7 +123,7 @@ while [ $fin -eq 1 ]; do
     echo "Overlay Text => $otext"
 
     # Capture image
-    if raspistill -w "$RESW" -h "$RESH" -q 100 -ex auto -awb auto -mm average -drc low -o "$wdir/pic_$n.jpg"; then
+    if rpicam-jpeg -n --width "$RESW" --height "$RESH" --output "$wdir/pic_$n.jpg"; then
         echo "Successfully created picture $i as $wdir/pic_$n.jpg."
     else
         echo "Unable to create picture $i as $wdir/pic_$n.jpg."
@@ -182,7 +183,7 @@ if [ $SCP_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ]; then
     echo "Uploading video to remote server..."
     scp "$wdir/$finfile.mp4" "$SCP_SERVER_PATH"
 else
-    echo "No remove server upload since upload is disabled or debug mode is enabled."
+    echo "No remote server upload since upload is disabled or debug mode is enabled."
 fi
 
 # Optional YouTube upload

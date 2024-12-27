@@ -15,12 +15,16 @@ This script:
 
 ## Prerequisites
 
+In raspii-config, disable the camera support.
+
 - **Raspberry Pi** with camera module
+- **libercam Apps**  libcamera to access the camera.
 - **Bash** (pre-installed on most Linux systems)
 - **ffmpeg** for video and image processing
-- **raspistill** for capturing images
+- **libcamera-apps-lite** for capturing images
 - **hdate** for calculating sun times
-- **youtube-upload** for YouTube uploads 
+- **bc** to help calculate
+- **youtube-upload** for YouTube uploads (https://github.com/tokland/youtube-upload)
 - **scp** for remote backup
 
 ## Installation
@@ -29,5 +33,8 @@ Reneame and adjust config.example.cfg
 1. **Install required software:**
    ```bash
    sudo apt-get update
-   sudo apt-get install -y ffmpeg hdate scp
-   pip install youtube-upload
+   sudo apt-get install -y ffmpeg hdate bc
+
+
+Please follow the instuction form Tokland to install the youtube upload lib.
+https://github.com/tokland/youtube-upload
