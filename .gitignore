@@ -3,8 +3,8 @@
 *.md
 *.log
 .*
-LICENCE
-# config.cfg
+LICENSE
+config.cfg
 
 # allow
 !README.md

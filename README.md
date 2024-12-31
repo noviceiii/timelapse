@@ -21,6 +21,7 @@ In raspii-config, disable the camera support.
 - **libercam Apps**  libcamera to access the camera.
 - **Bash** (pre-installed on most Linux systems)
 - **ffmpeg** for video and image processing
+- **pip** environment for youtube script
 - **libcamera-apps-lite** for capturing images
 - **hdate** for calculating sun times
 - **bc** to help calculate
@@ -32,8 +33,8 @@ Reneame and adjust config.example.cfg
 
 1. **Install required software:**
    ```bash
-   sudo apt-get update
-   sudo apt-get install -y ffmpeg hdate bc
+   sudo apt update
+   sudo apt install -y ffmpeg hdate bc pip
 
 
 Please follow the instuction form Tokland to install the youtube upload lib.

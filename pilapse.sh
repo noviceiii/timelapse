@@ -123,7 +123,7 @@ while [ $fin -eq 1 ]; do
     echo "Overlay Text => $otext"
 
     # Capture image
-    if rpicam-jpeg -n --width "$RESW" --height "$RESH" --output "$wdir/pic_$n.jpg"; then
+    if libcamera-jpeg -n --width "$RESW" --height "$RESH" --output "$wdir/pic_$n.jpg"; then
         echo "Successfully created picture $i as $wdir/pic_$n.jpg."
     else
         echo "Unable to create picture $i as $wdir/pic_$n.jpg."
