@@ -6,7 +6,7 @@
 # - .1 - addes support for libcamera
 
 # Configuration file path
-CONFIG_FILE="config.cfg"                       # set path to config file
+CONFIG_FILE="/opt/timelapse/config.cfg"         # set path to config file
 
 # Read security-relevant variables from config file
 if [ -f "$CONFIG_FILE" ]; then
