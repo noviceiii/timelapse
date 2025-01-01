@@ -2,11 +2,15 @@
 
 # Raspi Time Lapse from sunrise to sunset with text overlay,
 # Backup on remote Linux server, upload to YouTube.
+# Requires libcamera and hdate.
+
 # @Version 4.0, 16.12.2024.
-# - .1 - addes support for libcamera
+# - .1 - added support for libcamera
+# - .2 - better config file handling
 
 # Configuration file path
-CONFIG_FILE="/opt/timelapse/config.cfg"         # set path to config file
+script_dir=$(dirname "$(realpath "$0")")
+CONFIG_FILE="$script_dir/config.cfg"         # set path to config file
 
 # Read security-relevant variables from config file
 if [ -f "$CONFIG_FILE" ]; then
