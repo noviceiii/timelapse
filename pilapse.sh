@@ -196,7 +196,7 @@ else
 fi
 
 # Optional YouTube upload
-if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ] || [ $FORCE_YT_UPLOAD -eq 1 ]); then
+if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && ([ $debug -eq 0 ] || [ $FORCE_YT_UPLOAD -eq 1 ]); then
     echo "Preparing to upload to YouTube..."
 
    # Prepare YouTube metadata
