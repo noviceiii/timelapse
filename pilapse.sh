@@ -4,9 +4,14 @@
 # Backup on remote Linux server, upload to YouTube.
 # Requires libcamera and hdate.
 
-# @Version 4.0, 16.12.2024.
-# - .1 - added support for libcamera
-# - .2 - better config file handling
+# @Version 5.1.0, 12.01.2025.
+# - rewritten part of youtube-upload
+
+
+# @Version 5.0, 16.12.2024.
+# - added support for libcamera
+# - better config file handling
+# - changed for own youtube-upload script
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -193,23 +198,21 @@ fi
 # Optional YouTube upload
 if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ]; then
     echo "Preparing to upload to YouTube..."
-    # Prepare YouTube metadata
+
+   # Prepare YouTube metadata
     YDESC=$(printf "$YDESC" "$tsunrise" "$offSTART" "$tsunset" "$offEND" "$i" "$RESW" "$RESH" "$fr")
 
-    # YouTube upload
-    youtube-upload \
-    --title="Solothurn Zeitraffer $tsfriendly" \
-    --description="$YDESC" \
-    --tags="Solothurn, Zeitraffer" \
-    --default-language="de" \
-    --default-audio-language="de" \
-    --client-secrets="$CLIENT_SECRETS" \
-    --credentials-file="$CREDENTIALS_FILE" \
-    --playlist="$PLAYLIST" \
-    --privacy public \
-    --location latitude=$LATITUDE,longitude=$LONGITUDE \
-    --embeddable=True \
-    "$wdir/$finfile.mp4"
+    youtube_upload.py \
+    --videofile="$wdir/$finfile.mp4" \
+    --title="$YOUTUBE_TITLE $tsfriendly" \
+    --description="$YOUTUBE_DESC" \
+    --category="$YOUTUBE_CATEGORY" \
+    --keywords="$YOUTUBE_TAGS" \
+    --privacyStatus="$YOUTUBE_PRIVACY" \
+    --latitude="$LATITUDE" \
+    --longitude="$LONGITUDE" \
+    --language="$YOUTUBE_LANGUAGE"
+    
 else
     echo "No youtube upload since upload is disabled or debug mode is enabled."
 fi
