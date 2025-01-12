@@ -188,7 +188,7 @@ fi
 echo "** OUTRO"
 
 # Optional SCP upload
-if [ $SCP_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ]; then
+if [ $SCP_UPLOAD_ENABLED -eq 1 ] && ([ $debug -eq 0 ] || [ $FORCE_SCP_UPLOAD -eq 1 ]); then
     echo "Uploading video to remote server..."
     scp "$wdir/$finfile.mp4" "$SCP_SERVER_PATH"
 else
@@ -196,7 +196,7 @@ else
 fi
 
 # Optional YouTube upload
-if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ]; then
+if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && [ $debug -eq 0 ] || [ $FORCE_YT_UPLOAD -eq 1 ]); then
     echo "Preparing to upload to YouTube..."
 
    # Prepare YouTube metadata
