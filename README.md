@@ -3,6 +3,8 @@
 A Bash script for Raspberry Pi that creates time-lapse videos from sunrise to sunset, with text overlays, backup, and YouTube upload.
 See it in action here: https://www.youtube.com/watch?v=RmAjS0czRXU&list=PLcnGcU-Z-RJ1uRxLbBiHb2feVr6tQzJVj .
 
+You may optinally use the netatmo script to get netatmo weather station data and the youtube upload script to upload the generated faile to youtube.
+
 ## Overview
 
 This script:
@@ -15,7 +17,7 @@ This script:
 
 ## Prerequisites
 
-In raspii-config, disable the camera support.
+Please set a font file in the config.cfg. You can get one from here https://fonts.google.com/.
 
 - **Raspberry Pi** with camera module
 - **libercam Apps**  libcamera to access the camera.

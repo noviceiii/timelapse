@@ -202,7 +202,7 @@ if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && ([ $debug -eq 0 ] || [ $FORCE_YT_UPLOAD 
    # Prepare YouTube metadata
     YDESC=$(printf "$YDESC" "$tsunrise" "$offSTART" "$tsunset" "$offEND" "$i" "$RESW" "$RESH" "$fr")
 
-    youtube_upload.py \
+    python3 $YOUTUBE_SCRIPT_PATH \
     --videofile="$wdir/$finfile.mp4" \
     --title="$YOUTUBE_TITLE $tsfriendly" \
     --description="$YOUTUBE_DESC" \

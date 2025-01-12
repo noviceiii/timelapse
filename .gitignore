@@ -1,10 +1,6 @@
 # ignore
-*.txt
-*.md
 *.log
 .*
 LICENSE
 config.cfg
-
-# allow
-!README.md
+Roboto-Regular.ttf
