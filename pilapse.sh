@@ -4,9 +4,11 @@
 # Backup on remote Linux server, upload to YouTube.
 # Requires libcamera and hdate.
 
-# @Version 5.1.0, 12.01.2025.
-# - rewritten part of youtube-upload
+# @Version 5.2.0, 13.01.2025.
+# - added functionality to replace placeholders for YouTube title and description
 
+# @Version 5.1.0, 12.01.2025.
+# - rewritten as the youtube-upload script was changed
 
 # @Version 5.0, 16.12.2024.
 # - added support for libcamera
@@ -61,7 +63,7 @@ send=$((offEND * 3600))
 sendtime=$((ssunset + send))
 
 # Wait until start time if not in debug mode
-if [ $debug -eq 0 ]; then
+if [ "$debug" -eq 0 ]; then
     offwait=$((sstarttime - snow1))
     offwait=$((offwait < 0 ? 0 : offwait))
     echo "Sunrise at $ssunrise ($tsunrise). Sunset at $ssunset ($tsunset). Offset $offSTART hrs. It is $tnow1. Waiting $offwait second(s)..."
@@ -109,7 +111,7 @@ while [ $fin -eq 1 ]; do
 
     # Retrieve weather if enabled
     weather=""
-    if [ $WEATHER_ENABLED -eq 1 ]; then
+    if [ "$WEATHER_ENABLED" -eq 1 ]; then
         if [ -f "$WFILE" ]; then
             weather=$(cat "$WFILE")
         else
@@ -188,7 +190,7 @@ fi
 echo "** OUTRO"
 
 # Optional SCP upload
-if [ $SCP_UPLOAD_ENABLED -eq 1 ] && ([ $debug -eq 0 ] || [ $FORCE_SCP_UPLOAD -eq 1 ]); then
+if [ "$SCP_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_SCP_UPLOAD" -eq 1 ]); then
     echo "Uploading video to remote server..."
     scp "$wdir/$finfile.mp4" "$SCP_SERVER_PATH"
 else
@@ -196,16 +198,30 @@ else
 fi
 
 # Optional YouTube upload
-if [ $YOUTUBE_UPLOAD_ENABLED -eq 1 ] && ([ $debug -eq 0 ] || [ $FORCE_YT_UPLOAD -eq 1 ]); then
+if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UPLOAD" -eq 1 ]); then
     echo "Preparing to upload to YouTube..."
 
-   # Prepare YouTube metadata
-    YDESC=$(printf "$YDESC" "$tsunrise" "$offSTART" "$tsunset" "$offEND" "$i" "$RESW" "$RESH" "$fr")
+    # Replace placeholders in title
+    YOUTUBE_TITLE=$(echo "$YOUTUBE_TITLE" | \
+    sed "s/\[FORMATED_DATE\]/$ts/")
 
+    # Replace placeholders in description: TODO: Create a function for this
+    YOUTUBE_DESC=$(echo "$YOUTUBE_DESC" | \
+    sed "s/\[SUNRISE\]/$tsunrise/" | \
+    sed "s/\[SUNRISE-OFFSET\]/$offSTART/" | \
+    sed "s/\[SUNSET\]/$tsunset/" | \
+    sed "s/\[SUNSET-OFFSET\]/$offEND/" | \
+    sed "s/\[IMAGE-COUNT\]/$i/" | \
+    sed "s/\[INTERVALL\]/$INTERVALL/" | \
+    sed "s/\[HEIGHT\]/$RESH/" | \
+    sed "s/\[LENGTH\]/$RESW/" | \
+    sed "s/\[FRAMERATE\]/$fr/")
+
+    # Call youtube-upload script
     python3 $YOUTUBE_SCRIPT_PATH \
     --videofile="$wdir/$finfile.mp4" \
     --title="$YOUTUBE_TITLE $tsfriendly" \
-    --description="$YOUTUBE_DESC" \
+    --description="$YDESC" \
     --category="$YOUTUBE_CATEGORY" \
     --keywords="$YOUTUBE_TAGS" \
     --privacyStatus="$YOUTUBE_PRIVACY" \
@@ -218,7 +234,7 @@ else
 fi
 
 # Cleanup
-if [ $debug -eq 0 ]; then
+if [ "$debug" -eq 0 ]; then
     echo "Deleting temp directory $wdir."
     rm -r "$wdir"
 else
