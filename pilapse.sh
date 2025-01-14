@@ -29,6 +29,7 @@ fin=1                                               # Flag to continue loop
 
 # Timestamp for filenames and directories
 ts_path=$(date +%Y-%m-%d_%H%M%S)
+tsfriendly=$(date +%d.%m.%Y)
 
 # Working directory
 wdir="$TDIR/$ts_path"
@@ -78,7 +79,7 @@ replace_placeholders() {
     output_string=$(echo "$output_string" | sed "s/\[HEIGHT\]/$RESH/")
     output_string=$(echo "$output_string" | sed "s/\[LENGTH\]/$RESW/")
     output_string=$(echo "$output_string" | sed "s/\[FRAMERATE\]/$fr/")
-    output_string=$(echo "$output_string" | sed "s/\[FORMATED_DATE\]/$ts/")
+    output_string=$(echo "$output_string" | sed "s/\[FORMATED_DATE\]/$tsfriendly/")
 
     echo "$output_string"
 }
@@ -186,7 +187,6 @@ done
 ### Video ###
 echo "** Create Video of $i pictures."
 
-tsfriendly=$(date +%d.%m.%Y)
 finfile="${vidpref}_${tsfriendly}"
 
 # Create video
@@ -216,7 +216,7 @@ if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UP
     echo "Preparing to upload to YouTube..."
 
     # Replace placeholders in title
-    YOUTUBE_DESC=$(replace_placeholders "$YOUTUBE_DESC")
+    YOUTUBE_TITLE=$(replace_placeholders "$YOUTUBE_TITLE")
 
     # Replace placeholders in description: TODO: Create a function for this
     YOUTUBE_DESC=$(replace_placeholders "$YOUTUBE_DESC")
@@ -224,7 +224,7 @@ if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UP
     # Call youtube-upload script
     python3 $YOUTUBE_SCRIPT_PATH \
     --videofile="$wdir/$finfile.mp4" \
-    --title="$YOUTUBE_TITLE $tsfriendly" \
+    --title="$YOUTUBE_TITLE" \
     --description="$YOUTUBE_DESC" \
     --category="$YOUTUBE_CATEGORY" \
     --keywords="$YOUTUBE_TAGS" \
