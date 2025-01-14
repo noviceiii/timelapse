@@ -4,16 +4,8 @@
 # Backup on remote Linux server, upload to YouTube.
 # Requires libcamera and hdate.
 
-# @Version 5.2.0, 13.01.2025.
-# - added functionality to replace placeholders for YouTube title and description
-
-# @Version 5.1.0, 12.01.2025.
-# - rewritten as the youtube-upload script was changed
-
-# @Version 5.0, 16.12.2024.
-# - added support for libcamera
-# - better config file handling
-# - changed for own youtube-upload script
+# @Version 5.2.0, 13.01.2025.   added functionality to replace placeholders for YouTube title and description
+# @Version 5.2.1, 15.01.2025.   added functionality to replace placeholders in description
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -71,6 +63,28 @@ if [ "$debug" -eq 0 ]; then
 else
     echo "Debugging mode is on. Starting immediately."
 fi
+
+# function to parse values
+replace_placeholders() {
+    local input_string="$1"
+    local output_string="$input_string"
+
+    output_string=$(echo "$output_string" | sed "s/\[SUNRISE\]/$tsunrise/")
+    output_string=$(echo "$output_string" | sed "s/\[SUNRISE-OFFSET\]/$offSTART/")
+    output_string=$(echo "$output_string" | sed "s/\[SUNSET\]/$tsunset/")
+    output_string=$(echo "$output_string" | sed "s/\[SUNSET-OFFSET\]/$offEND/")
+    output_string=$(echo "$output_string" | sed "s/\[IMAGE-COUNT\]/$i/")
+    output_string=$(echo "$output_string" | sed "s/\[INTERVALL\]/$INTERVALL/")
+    output_string=$(echo "$output_string" | sed "s/\[HEIGHT\]/$RESH/")
+    output_string=$(echo "$output_string" | sed "s/\[LENGTH\]/$RESW/")
+    output_string=$(echo "$output_string" | sed "s/\[FRAMERATE\]/$fr/")
+    output_string=$(echo "$output_string" | sed "s/\[FORMATED_DATE\]/$ts/")
+
+    echo "$output_string"
+}
+
+# Replace placeholders in description
+YOUTUBE_DESC=$(replace_placeholders "$YOUTUBE_DESC")
 
 ### INIT END ###
 
@@ -202,31 +216,22 @@ if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UP
     echo "Preparing to upload to YouTube..."
 
     # Replace placeholders in title
-    YOUTUBE_TITLE=$(echo "$YOUTUBE_TITLE" | \
-    sed "s/\[FORMATED_DATE\]/$ts/")
+    YOUTUBE_DESC=$(replace_placeholders "$YOUTUBE_DESC")
 
     # Replace placeholders in description: TODO: Create a function for this
-    YOUTUBE_DESC=$(echo "$YOUTUBE_DESC" | \
-    sed "s/\[SUNRISE\]/$tsunrise/" | \
-    sed "s/\[SUNRISE-OFFSET\]/$offSTART/" | \
-    sed "s/\[SUNSET\]/$tsunset/" | \
-    sed "s/\[SUNSET-OFFSET\]/$offEND/" | \
-    sed "s/\[IMAGE-COUNT\]/$i/" | \
-    sed "s/\[INTERVALL\]/$INTERVALL/" | \
-    sed "s/\[HEIGHT\]/$RESH/" | \
-    sed "s/\[LENGTH\]/$RESW/" | \
-    sed "s/\[FRAMERATE\]/$fr/")
+    YOUTUBE_DESC=$(replace_placeholders "$YOUTUBE_DESC")
 
     # Call youtube-upload script
     python3 $YOUTUBE_SCRIPT_PATH \
     --videofile="$wdir/$finfile.mp4" \
     --title="$YOUTUBE_TITLE $tsfriendly" \
-    --description="$YDESC" \
+    --description="$YOUTUBE_DESC" \
     --category="$YOUTUBE_CATEGORY" \
     --keywords="$YOUTUBE_TAGS" \
     --privacyStatus="$YOUTUBE_PRIVACY" \
     --latitude="$LATITUDE" \
     --longitude="$LONGITUDE" \
+    --playlistId="$PLAYLIST" \
     --language="$YOUTUBE_LANGUAGE"
     
 else
