@@ -18,6 +18,7 @@ This Bash script automates the process of creating a time-lapse video from sunri
 
 - **Raspberry Pi** with Bash shell
 - **libcamera** installed for image capture
+- **font** you need a font file for the text overlay
 - **hdate** for calculating sunrise/sunset times
 - **ffmpeg** for video creation and text overlay
 - **Netatmo script** for weather lookups (if enabled)
@@ -26,8 +27,6 @@ This Bash script automates the process of creating a time-lapse video from sunri
 ## Configuration
 
 - **config.cfg**: Contains all configurable parameters for the script.
-
-### Config File Overview
 
 - **DEBUG**: 
   - `debug`: Enables debug mode, which limits the number of pictures taken.
