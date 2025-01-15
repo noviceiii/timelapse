@@ -51,16 +51,27 @@ This Bash script automates the process of creating a time-lapse video from sunri
 
 ### Placeholders for YouTube Title and Description
 
-- **[SUNRISE]**: Replaced with the time of the sunrise.
-- **[SUNRISE-OFFSET]**: Replaced with the time of the offset to the sunrise.
-- **[SUNSET]**: Replaced with the time of the sunset.
-- **[SUNSET-OFFSET]**: Replaced with the time of the offset to the sunset.
-- **[IMAGE-COUNT]**: Number of images created.
-- **[INTERVAL]**: Interval at which pictures are taken.
-- **[HEIGHT]**: The height of the image.
-- **[WIDTH]**: The width of the image.
-- **[FRAMERATE]**: The framerate used.
-- **[FORMATTED_DATE]**: Formatted date as dd.mm.yyyy.
+- **[SUNRISE]**: Replaced with the time of the sunrise (`$tsunrise`).
+- **[SUNRISE-OFFSET]**: Replaced with the time of the offset to the sunrise (`$offSTART`).
+- **[SUNSET]**: Replaced with the time of the sunset (`$tsunset`).
+- **[SUNSET-OFFSET]**: Replaced with the time of the offset to the sunset (`$offEND`).
+- **[IMAGE-COUNT]**: Number of images created (`$i`).
+- **[IMAGE-COUNT-FORMATED]**: Number of images created with leading zero (`$formatted_i`).
+- **[INTERVAL]**: Interval at which pictures are taken (`$INTERVALL`).
+- **[HEIGHT]**: The height of the image (`$RESH`).
+- **[WIDTH]**: The width of the image (`$RESW`) - Note: in the code, this is referred to as `LENGTH`.
+- **[FRAMERATE]**: The framerate used (`$fr`).
+- **[FORMATTED_DATE]**: Formatted date as dd.mm.yyyy (`$tsfriendly`).
+- **[FORMATED_DATETIME]**: Replaced with the value of the variable `ts` (`$tsoverlay`).
+- **[INT-TEMP]**: Internal Temperature of device (`$obrdtmp`).
+- **[WEATHER]**: Weather information if enabled (`$weather`).
+- **[LATITUDE]**: Latitude of the location (`$LATITUDE`).
+- **[LONGITUDE]**: Longitude of the location (`$LONGITUDE`).
+- **[PLAYLIST]**: YouTube playlist name or ID (`$PLAYLIST`).
+- **[YOUTUBE-CATEGORY]**: YouTube video category (`$YOUTUBE_CATEGORY`).
+- **[YOUTUBE-LANGUAGE]**: Language of the YouTube video (`$YOUTUBE_LANGUAGE`).
+- **[YOUTUBE-PRIVACY]**: Privacy status for the YouTube video (`$YOUTUBE_PRIVACY`).
+- **[YOUTUBE-TAGS]**: Tags for the YouTube video (`$YOUTUBE_TAGS`).
 
 ## Usage
 
