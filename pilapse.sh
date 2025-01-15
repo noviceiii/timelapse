@@ -6,6 +6,7 @@
 
 # @Version 5.2.0, 13.01.2025.   added functionality to replace placeholders for YouTube title and description
 # @Version 5.2.1, 15.01.2025.   added functionality to replace placeholders in description
+# @Version 5.2.2, 16.01.2025.   added more placeholders in description, added flag to enable/disable overlay text, added escape characters for special characters in overlay text
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -22,7 +23,8 @@ fi
 # ------------------------------------------------------------------------------------------------------------------------------------------- 
 
 #### INIT ####
-echo "** INIT"
+echo "---------------------------------------------------------------------------"
+echo "Initialization"
 
 i=1                                                 # Picture counter
 fin=1                                               # Flag to continue loop
@@ -65,33 +67,47 @@ else
     echo "Debugging mode is on. Starting immediately."
 fi
 
-# function to parse values
+# Function to replace placeholders in a given string with actual values
 replace_placeholders() {
     local input_string="$1"
     local output_string="$input_string"
 
-    output_string=$(echo "$output_string" | sed "s/\[SUNRISE\]/$tsunrise/")
-    output_string=$(echo "$output_string" | sed "s/\[SUNRISE-OFFSET\]/$offSTART/")
-    output_string=$(echo "$output_string" | sed "s/\[SUNSET\]/$tsunset/")
-    output_string=$(echo "$output_string" | sed "s/\[SUNSET-OFFSET\]/$offEND/")
-    output_string=$(echo "$output_string" | sed "s/\[IMAGE-COUNT\]/$i/")
-    output_string=$(echo "$output_string" | sed "s/\[INTERVALL\]/$INTERVALL/")
-    output_string=$(echo "$output_string" | sed "s/\[HEIGHT\]/$RESH/")
-    output_string=$(echo "$output_string" | sed "s/\[LENGTH\]/$RESW/")
-    output_string=$(echo "$output_string" | sed "s/\[FRAMERATE\]/$fr/")
-    output_string=$(echo "$output_string" | sed "s/\[FORMATED_DATE\]/$tsfriendly/")
+    # leading zero for image count
+    local formatted_i=$(printf "%05d" "$i")
+    output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT\]|$formatted_i|")
+
+    output_string=$(echo "$output_string" | sed "s|\[SUNRISE\]|$tsunrise|")
+    output_string=$(echo "$output_string" | sed "s|\[SUNRISE-OFFSET\]|$offSTART|")
+    output_string=$(echo "$output_string" | sed "s|\[SUNSET\]|$tsunset|")
+    output_string=$(echo "$output_string" | sed "s|\[SUNSET-OFFSET\]|$offEND|")
+    output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT\]|$i|")
+    output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT-FORMATED\]|$formatted_i|")
+    output_string=$(echo "$output_string" | sed "s|\[INTERVALL\]|$INTERVALL|")
+    output_string=$(echo "$output_string" | sed "s|\[HEIGHT\]|$RESH|")
+    output_string=$(echo "$output_string" | sed "s|\[LENGTH\]|$RESW|")
+    output_string=$(echo "$output_string" | sed "s|\[FRAMERATE\]|$fr|")
+    output_string=$(echo "$output_string" | sed "s|\[FORMATED_DATE\]|$tsfriendly|")
+    output_string=$(echo "$output_string" | sed "s|\[FORMATED_DATETIME\]|$tsoverlay|")
+    output_string=$(echo "$output_string" | sed "s|\[INT-TEMP\]|$obrdtmp|")
+    output_string=$(echo "$output_string" | sed "s|\[WEATHER\]|$weather|")
+    output_string=$(echo "$output_string" | sed "s|\[LATITUDE\]|$LATITUDE|")
+    output_string=$(echo "$output_string" | sed "s|\[LONGITUDE\]|$LONGITUDE|")
+    output_string=$(echo "$output_string" | sed "s|\[PLAYLIST\]|$PLAYLIST|")
+    output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-CATEGORY\]|$YOUTUBE_CATEGORY|")
+    output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-LANGUAGE\]|$YOUTUBE_LANGUAGE|")
+    output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-PRIVACY\]|$YOUTUBE_PRIVACY|")
+    output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-TAGS\]|$YOUTUBE_TAGS|")
 
     echo "$output_string"
 }
-
-# Replace placeholders in description
-YOUTUBE_DESC=$(replace_placeholders "$YOUTUBE_DESC")
 
 ### INIT END ###
 
 
 #### INTRO ####
-echo "** INTRO"
+echo "---------------------------------------------------------------------------"
+echo "INTRO"
+echo "---------------------------------------------------------------------------"
 
 # Create working directory
 if mkdir -p "$wdir"; then
@@ -105,7 +121,10 @@ fi
 
 
 #### LOOP ####
-echo "** LOOP"
+echo "---------------------------------------------------------------------------"
+echo "Loop through capturing images until sunset every $INTERVAL seconds"
+echo "or for $z pictures if debug ($debug) is on." 
+echo "---------------------------------------------------------------------------"
 
 while [ $fin -eq 1 ]; do
     # Calculate sleep time based on last image capture
@@ -115,38 +134,11 @@ while [ $fin -eq 1 ]; do
     tsleep=$((INTERVAL - sdiff))
     tsleep=$((tsleep < 0 ? 0 : tsleep))
 
-    echo "Interval is $INTERVAL, difference is $sdiff ($snow2 - $snow1). Sleeping for $tsleep second(s)..."
-    sleep "$tsleep"
-
     tnow1=$(date +%H:%M:%S)
     snow1=$(date +%s -d "$tnow1")
 
     # Format picture number
     n=$(printf "%05d" $i)
-
-    # Retrieve weather if enabled
-    weather=""
-    if [ "$WEATHER_ENABLED" -eq 1 ]; then
-        if [ -f "$WFILE" ]; then
-            weather=$(cat "$WFILE")
-        else
-            echo "Weather file $WFILE not found. Skipping weather information."
-        fi
-    fi
-
-    # Get system temperature
-    temp=$(cat /sys/class/thermal/thermal_zone0/temp)
-    obrdtmp=$(echo "scale=2; $temp / 1000" | bc)
-
-    # Prepare text overlay
-    tsoverlay=$(date "+%d.%m.%Y %H:%M:%S")
-    otext="$tsoverlay | Sunrise: $tsunrise | Sunset: $tsunset | $weather | Int. Tmp: $obrdtmp °C | $n"
-    otext=${otext//:/\\:}  # Escape special characters for ffmpeg
-    otext=${otext//|/\\|}
-    otext=${otext//°/\\°}
-    otext=${otext//%/\\%}
-
-    echo "Overlay Text => $otext"
 
     # Capture image
     if libcamera-jpeg -n --width "$RESW" --height "$RESH" --output "$wdir/pic_$n.jpg"; then
@@ -156,14 +148,61 @@ while [ $fin -eq 1 ]; do
         exit 1
     fi
 
-    # Add text overlay to image
-    if ffmpeg -loglevel panic -i "$wdir/pic_$n.jpg" \
-        -vf "drawtext=fontfile=$FPATH:text='$otext':fontcolor=white:fontsize=48:box=1:boxcolor=black@0.5:boxborderw=5:x=w-tw-10:y=h-th-10" \
-        -y "$wdir/pic_txt_$n.jpg"; then
-        echo "Successfully added text to picture $i as $wdir/pic_txt_$n.jpg."
-    else
-        echo "Unable to add text to picture $i as $wdir/pic_txt_$n.jpg."
-        exit 1
+    # Add text overlay text to image if enabled in config
+    if [ "$OVERLAY_ENABLED" -eq 1 ]; then
+
+        echo "* overlay is enabled."
+        
+        # Time Date Stamp for overlay
+        tsoverlay=$(date "+%d.%m.%Y %H:%M:%S")
+
+        # Get system temperature
+        temp=$(cat /sys/class/thermal/thermal_zone0/temp)
+        obrdtmp=$(echo "scale=2; $temp / 1000" | bc)
+
+        # Retrieve weather if enabled
+        weather=""
+        if [ "$WEATHER_ENABLED" -eq 1 ]; then
+            echo "* weather is enabled."
+            if [ -f "$WFILE" ]; then
+                weather=$(cat "$WFILE")
+            else
+                echo "Weather file $WFILE not found. Skipping weather information."
+            fi
+        fi
+
+        # Prepare text overlay
+        otext=$(replace_placeholders "$OVERLAY_TEXT")
+        otext=${otext//:/\\:}
+        otext=${otext//,/\\,}
+        otext=${otext//|/\\|}
+        otext=${otext//°/\\°}
+        otext=${otext//%/\\\\\\\\\\\%}
+        otext=${otext//(/\\(}
+        otext=${otext//)/\\)}
+        otext=${otext//#/\\#}
+        otext=${otext//\!/\\!}
+        otext=${otext//\?/\\?}
+
+        echo "Overlay Text:"
+        echo "$otext"
+
+        # Test if font file exists
+        if [ -f "$FPATH" ]; then
+            echo "Font file $FPATH found. Prooceed."
+        else
+            echo "Font file $FPATH not found. Exiting."
+            exit 1
+        fi
+
+        # Add text overlay to image
+        if ffmpeg -hide_banner -loglevel panic -i "$wdir/pic_$n.jpg" \
+            -vf "drawtext=fontfile='$FPATH':text='$otext':fontcolor=white:fontsize=48:box=1:boxcolor=black@0.5:boxborderw=5:x=w-tw-10:y=h-th-50" "$wdir/pic_txt_$n.jpg"; then
+            echo "Successfully added text to picture $i as $wdir/pic_txt_$n.jpg."
+        else
+            echo "Unable to add text to picture $i as $wdir/pic_txt_$n.jpg."
+            exit 1
+        fi
     fi
 
     i=$((i + 1))
@@ -179,18 +218,25 @@ while [ $fin -eq 1 ]; do
         echo "$tnow1 is the time to exit the loop. Sunset at $tsunset. Offset $offEND hrs. Exit continuous image creation."
         fin=0
     fi
+
+    # Sleep for the interval
+    echo "Interval is $INTERVAL, difference is $sdiff ($snow2 - $snow1). Sleeping for $tsleep second(s)..."
+    sleep "$tsleep"
+
 done
 
 ## LOOP END ##
 
 
 ### Video ###
-echo "** Create Video of $i pictures."
+echo "---------------------------------------------------------------------------"
+echo "Create Video from $i pictures. Please wait a while..."
+echo "---------------------------------------------------------------------------"
 
 finfile="${vidpref}_${tsfriendly}"
 
 # Create video
-if ffmpeg -r "$fr" -i "$wdir/pic_txt_%05d.jpg" "$wdir/$finfile.mp4"; then
+if ffmpeg -hide_banner -loglevel panic -r "$fr" -i "$wdir/pic_txt_%05d.jpg" "$wdir/$finfile.mp4"; then
     echo "Successfully created final video as $wdir/$finfile.mp4."
 else
     echo "Unable to create final video as $wdir/$finfile.mp4."
@@ -201,7 +247,9 @@ fi
 
 
 #### OUTRO ####
-echo "** OUTRO"
+echo "---------------------------------------------------------------------------"
+echo "OUTRO"
+echo "---------------------------------------------------------------------------"
 
 # Optional SCP upload
 if [ "$SCP_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_SCP_UPLOAD" -eq 1 ]); then
@@ -217,9 +265,11 @@ if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UP
 
     # Replace placeholders in title
     YOUTUBE_TITLE=$(replace_placeholders "$YOUTUBE_TITLE")
+    echo "YouTube title: $YOUTUBE_TITLE"
 
     # Replace placeholders in description: TODO: Create a function for this
     YOUTUBE_DESC=$(replace_placeholders "$YOUTUBE_DESC")
+    echo "YouTube description: $YOUTUBE_DESC"
 
     # Call youtube-upload script
     python3 $YOUTUBE_SCRIPT_PATH \
@@ -235,7 +285,7 @@ if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UP
     --language="$YOUTUBE_LANGUAGE"
     
 else
-    echo "No youtube upload since upload is disabled or debug mode is enabled."
+    echo "No youtube upload since debug mode is enabled and upload not foreced."
 fi
 
 # Cleanup
@@ -246,4 +296,6 @@ else
     echo "Won't delete directory $wdir as debugging is enabled."
 fi
 
+echo "---------------------------------------------------------------------------"
 echo "** All done. **"
+echo "---------------------------------------------------------------------------"
