@@ -7,6 +7,7 @@
 # @Version 5.2.0, 13.01.2025.   added functionality to replace placeholders for YouTube title and description
 # @Version 5.2.1, 15.01.2025.   added functionality to replace placeholders in description
 # @Version 5.2.2, 16.01.2025.   added more placeholders in description, added flag to enable/disable overlay text, added escape characters for special characters in overlay text
+# @Version 5.2.3, 22.01.2025.   better handling of hdate; fixed and simplified longitude/latitude settings.
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -23,8 +24,9 @@ fi
 # ------------------------------------------------------------------------------------------------------------------------------------------- 
 
 #### INIT ####
-echo "---------------------------------------------------------------------------"
+echo "==========================================================================="
 echo "Initialization"
+echo "---------------------------------------------------------------------------"
 
 i=1                                                 # Picture counter
 fin=1                                               # Flag to continue loop
@@ -43,17 +45,46 @@ tnow1=$(date +%H:%M:%S)
 snow1=$(date +%s -d "$tnow1")
 
 # Get sunrise and sunset times
-sunrisesunset=`hdate -q -s -S -l $LONG -L $LAT -z$TIZO`
-tsunrise=`echo $sunrisesunset | awk '{ print $6}'`
-tsunset=`echo $sunrisesunset | awk '{ print $8}'`
 
-# Convert sunrise and sunset to seconds
+#!/bin/bash
+
+# Führe den hdate-Befehl aus und speichere die Ausgabe
+output=$(hdate --timezone $TIZO --latitude $LAT --longitude $LONG -t --not-sunset-aware)
+
+# Extrahiere die Werte und weise sie Variablen zu
+date=$(echo "$output" | grep -oP '(?<=, ).*(?=, \d{4})')
+year=$(echo "$output" | grep -oP '\d{4}')
+first_light=$(echo "$output" | grep -oP '(?<=first_light: )\d{2}:\d{2}')
+talit=$(echo "$output" | grep -oP '(?<=talit: )\d{2}:\d{2}')
+sunrise=$(echo "$output" | grep -oP '(?<=sunrise: )\d{2}:\d{2}')
+midday=$(echo "$output" | grep -oP '(?<=midday: )\d{2}:\d{2}')
+sunset=$(echo "$output" | grep -oP '(?<=sunset: )\d{2}:\d{2}')
+first_stars=$(echo "$output" | grep -oP '(?<=first_stars: )\d{2}:\d{2}')
+three_stars=$(echo "$output" | grep -oP '(?<=three_stars: )\d{2}:\d{2}')
+sun_hour=$(echo "$output" | grep -oP '(?<=sun_hour: )\d{2}:\d{2}')
+
+# Ausgabe der Variablen zur Überprüfung
+echo "First Light: $first_light"
+echo "Sunrise: $sunrise"
+echo "Sunset : $sunset"
+echo "First Stars: $first_stars"
+echo "Three Stars: $three_stars"
+echo "Sun Hour: $sun_hour"
+
+# Convert time to seconds
 ssunrise=$(date +%s -d "$tsunrise")
 ssunset=$(date +%s -d "$tsunset")
+sfirstlight=$(date +%s -d "$first_light")
 
-# Calculate script start and end times
+# Calculate script start and end times, including offset
 sstart=$((offSTART * 3600))
-sstarttime=$((ssunrise - sstart))
+if [ "$startevent" = "firstlight" ]; then
+    echo "The script shall start at first light: $first_light with an offset of -$offSTART."
+    sstarttime=$((sfirstlight - sstart))
+else
+    echo "The script shall start at sunrise: $sunrise with an offset of -$offSTART."
+    sstarttime=$((ssunrise - sstart))
+fi
 send=$((offEND * 3600))
 sendtime=$((ssunset + send))
 
@@ -61,7 +92,9 @@ sendtime=$((ssunset + send))
 if [ "$debug" -eq 0 ]; then
     offwait=$((sstarttime - snow1))
     offwait=$((offwait < 0 ? 0 : offwait))
-    echo "Sunrise at $ssunrise ($tsunrise). Sunset at $ssunset ($tsunset). Offset $offSTART hrs. It is $tnow1. Waiting $offwait second(s)..."
+
+    echo "Sunrise at $sunrise. Sunset at $sunset. Offset $offSTART hrs. It is $tnow1. Waiting $offwait second(s)..."
+    
     sleep "$offwait"
 else
     echo "Debugging mode is on. Starting immediately."
@@ -74,11 +107,11 @@ replace_placeholders() {
 
     # leading zero for image count
     local formatted_i=$(printf "%05d" "$i")
-    output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT\]|$formatted_i|")
 
-    output_string=$(echo "$output_string" | sed "s|\[SUNRISE\]|$tsunrise|")
-    output_string=$(echo "$output_string" | sed "s|\[SUNRISE-OFFSET\]|$offSTART|")
-    output_string=$(echo "$output_string" | sed "s|\[SUNSET\]|$tsunset|")
+    output_string=$(echo "$output_string" | sed "s|\[SUNRISE\]|$sunrise|")
+    output_string=$(echo "$output_string" | sed "s|\[FIRSTLIGHT\]|$first_light|")
+    output_string=$(echo "$output_string" | sed "s|\[START-OFFSET\]|$offSTART|")
+    output_string=$(echo "$output_string" | sed "s|\[SUNSET\]|$sunset|")
     output_string=$(echo "$output_string" | sed "s|\[SUNSET-OFFSET\]|$offEND|")
     output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT\]|$i|")
     output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT-FORMATED\]|$formatted_i|")
@@ -90,8 +123,8 @@ replace_placeholders() {
     output_string=$(echo "$output_string" | sed "s|\[FORMATED_DATETIME\]|$tsoverlay|")
     output_string=$(echo "$output_string" | sed "s|\[INT-TEMP\]|$obrdtmp|")
     output_string=$(echo "$output_string" | sed "s|\[WEATHER\]|$weather|")
-    output_string=$(echo "$output_string" | sed "s|\[LATITUDE\]|$LATITUDE|")
-    output_string=$(echo "$output_string" | sed "s|\[LONGITUDE\]|$LONGITUDE|")
+    output_string=$(echo "$output_string" | sed "s|\[LAT\]|$LAT|")
+    output_string=$(echo "$output_string" | sed "s|\[LONG\]|$LONG|")
     output_string=$(echo "$output_string" | sed "s|\[PLAYLIST\]|$PLAYLIST|")
     output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-CATEGORY\]|$YOUTUBE_CATEGORY|")
     output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-LANGUAGE\]|$YOUTUBE_LANGUAGE|")
@@ -279,8 +312,8 @@ if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UP
     --category="$YOUTUBE_CATEGORY" \
     --keywords="$YOUTUBE_TAGS" \
     --privacyStatus="$YOUTUBE_PRIVACY" \
-    --latitude="$LATITUDE" \
-    --longitude="$LONGITUDE" \
+    --LAT="$LAT" \
+    --LONG="$LONG" \
     --playlistId="$PLAYLIST" \
     --language="$YOUTUBE_LANGUAGE"
     
@@ -298,4 +331,4 @@ fi
 
 echo "---------------------------------------------------------------------------"
 echo "** All done. **"
-echo "---------------------------------------------------------------------------"
+echo "==========================================================================="
