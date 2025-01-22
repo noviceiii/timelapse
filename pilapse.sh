@@ -115,7 +115,7 @@ replace_placeholders() {
     output_string=$(echo "$output_string" | sed "s|\[SUNSET-OFFSET\]|$offEND|")
     output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT\]|$i|")
     output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT-FORMATED\]|$formatted_i|")
-    output_string=$(echo "$output_string" | sed "s|\[INTERVALL\]|$INTERVALL|")
+    output_string=$(echo "$output_string" | sed "s|\[INTERVAL\]|$INTERVAL|")
     output_string=$(echo "$output_string" | sed "s|\[HEIGHT\]|$RESH|")
     output_string=$(echo "$output_string" | sed "s|\[LENGTH\]|$RESW|")
     output_string=$(echo "$output_string" | sed "s|\[FRAMERATE\]|$fr|")
@@ -312,8 +312,8 @@ if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UP
     --category="$YOUTUBE_CATEGORY" \
     --keywords="$YOUTUBE_TAGS" \
     --privacyStatus="$YOUTUBE_PRIVACY" \
-    --LAT="$LAT" \
-    --LONG="$LONG" \
+    --latitude="$LAT" \
+    --longitude="$LONG" \
     --playlistId="$PLAYLIST" \
     --language="$YOUTUBE_LANGUAGE"
     
