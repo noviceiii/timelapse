@@ -60,7 +60,7 @@ This Bash script automates the process of creating a time-lapse video from sunri
 - **[SUNSET-OFFSET]**: Replaced with the time of the offset to the sunset (`$offEND`).
 - **[IMAGE-COUNT]**: Number of images created (`$i`).
 - **[IMAGE-COUNT-FORMATED]**: Number of images created with leading zero (`$formatted_i`).
-- **[INTERVAL]**: Interval at which pictures are taken (`$INTERVALL`).
+- **[INTERVAL]**: Interval at which pictures are taken (`$INTERVAL`).
 - **[HEIGHT]**: The height of the image (`$RESH`).
 - **[WIDTH]**: The width of the image (`$RESW`) - Note: in the code, this is referred to as `LENGTH`.
 - **[FRAMERATE]**: The framerate used (`$fr`).
