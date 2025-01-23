@@ -8,6 +8,7 @@
 # @Version 5.2.1, 15.01.2025.   added functionality to replace placeholders in description
 # @Version 5.2.2, 16.01.2025.   added more placeholders in description, added flag to enable/disable overlay text, added escape characters for special characters in overlay text
 # @Version 5.2.3, 22.01.2025.   better handling of hdate; fixed and simplified longitude/latitude settings.
+# ..                            fixed escaping of percentage sign in overlay text.
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -204,20 +205,21 @@ while [ $fin -eq 1 ]; do
             fi
         fi
 
-        # Prepare text overlay
+        # Prepare text overlay; replace placeholders
         otext=$(replace_placeholders "$OVERLAY_TEXT")
+        # Prepare text overlay; escape special characters
         otext=${otext//:/\\:}
         otext=${otext//,/\\,}
         otext=${otext//|/\\|}
         otext=${otext//°/\\°}
-        otext=${otext//%/\\\\\\\\\\\%}
         otext=${otext//(/\\(}
         otext=${otext//)/\\)}
         otext=${otext//#/\\#}
         otext=${otext//\!/\\!}
         otext=${otext//\?/\\?}
+        otext=${otext//%/\\\\%}
 
-        echo "Overlay Text:"
+        echo "Overlay text parsed:"
         echo "$otext"
 
         # Test if font file exists
