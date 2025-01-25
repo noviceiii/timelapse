@@ -72,8 +72,8 @@ echo "Three Stars: $three_stars"
 echo "Sun Hour: $sun_hour"
 
 # Convert time to seconds
-ssunrise=$(date +%s -d "$tsunrise")
-ssunset=$(date +%s -d "$tsunset")
+ssunrise=$(date +%s -d "$sunrise")
+ssunset=$(date +%s -d "$sunset")
 sfirstlight=$(date +%s -d "$first_light")
 
 # Calculate script start and end times, including offset
@@ -210,7 +210,7 @@ while [ $fin -eq 1 ]; do
         otext=${otext//,/\\,}
         otext=${otext//|/\\|}
         otext=${otext//°/\\°}
-        otext=${otext//%/\\\\\\\\\\\%}
+        otext=${otext//%/\\\\%}
         otext=${otext//(/\\(}
         otext=${otext//)/\\)}
         otext=${otext//#/\\#}
