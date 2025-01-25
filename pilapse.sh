@@ -9,6 +9,7 @@
 # @Version 5.2.2, 16.01.2025.   added more placeholders in description, added flag to enable/disable overlay text, added escape characters for special characters in overlay text
 # @Version 5.2.3, 22.01.2025.   better handling of hdate; fixed and simplified longitude/latitude settings.
 # ..                            fixed escaping of percentage sign in overlay text.
+# ..                            fixed too early end of loop. Added more debug output.
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -86,6 +87,7 @@ else
     echo "The script shall start at sunrise: $sunrise with an offset of -$offSTART."
     sstarttime=$((ssunrise - sstart))
 fi
+
 send=$((offEND * 3600))
 sendtime=$((ssunset + send))
 
@@ -153,14 +155,13 @@ fi
 
 ## INTRO END ##
 
-
 #### LOOP ####
 echo "---------------------------------------------------------------------------"
 echo "Loop through capturing images until sunset every $INTERVAL seconds"
 echo "or for $z pictures if debug ($debug) is on." 
 echo "---------------------------------------------------------------------------"
 
-while [ $fin -eq 1 ]; do
+while [ "$fin" -eq 1 ]; do
     # Calculate sleep time based on last image capture
     tnow2=$(date +%H:%M:%S)
     snow2=$(date +%s -d "$tnow2")
@@ -212,10 +213,6 @@ while [ $fin -eq 1 ]; do
         otext=${otext//,/\\,}
         otext=${otext//|/\\|}
         otext=${otext//°/\\°}
-<<<<<<< HEAD
-        otext=${otext//%/\\\\%}
-=======
->>>>>>> 676b41307e3724dbfafbd0b8b9a5b66809041c55
         otext=${otext//(/\\(}
         otext=${otext//)/\\)}
         otext=${otext//#/\\#}
@@ -244,23 +241,30 @@ while [ $fin -eq 1 ]; do
         fi
     fi
 
-    i=$((i + 1))
-
-    # Check if it's time to end the loop
-    if [ $debug -eq 1 ]; then
-        echo "Debugging mode is on. Current iteration: $i."
+    # Check if it's time to end the loop or to wait for the next interval
+    if [ "$debug" -eq 1 ]; then
+        echo "Debugging mode is on. Current iteration: $i. Maximum iterations: $z."
         if [ $i -gt $z ]; then
             echo "Setting exit flag."
             fin=0
+        else
+             # Increment picture counter
+            i=$((i + 1))
         fi
-    elif [ $snow1 -gt $sendtime ]; then
-        echo "$tnow1 is the time to exit the loop. Sunset at $tsunset. Offset $offEND hrs. Exit continuous image creation."
-        fin=0
-    fi
 
-    # Sleep for the interval
-    echo "Interval is $INTERVAL, difference is $sdiff ($snow2 - $snow1). Sleeping for $tsleep second(s)..."
-    sleep "$tsleep"
+    elif [ "$snow1" -gt "$sendtime" ]; then
+        echo "It is $tnow1 ($snow1). $sendtime ($tsunset +$offENDh) is the time to exit the loop. EXIT continuous image creation."
+        fin=0
+    else
+        fin=1
+
+        # Sleep for the interval
+        echo "Interval is $INTERVAL s, difference is $sdiff s ($snow2 - $snow1). Sleeping for $tsleep second(s)..."
+        sleep "$tsleep"
+
+        # Increment picture counter
+        i=$((i + 1))
+    fi
 
 done
 
