@@ -9,6 +9,8 @@
 # @Version 5.2.2, 16.01.2025.   added more placeholders in description, added flag to enable/disable overlay text, added escape characters for special characters in overlay text
 # @Version 5.2.3, 22.01.2025.   better handling of hdate; fixed and simplified longitude/latitude settings.
 # ..                            fixed escaping of percentage sign in overlay text.
+# ..                            fixed too early end of loop. Added more debug output.
+# @Version 5.3.0, 10.02.2025.   added new config parameters to overwrite start and end time
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -45,14 +47,10 @@ fr=$(echo "scale=0; 1/$DT" | bc)                    # Calculate frame rate
 tnow1=$(date +%H:%M:%S)
 snow1=$(date +%s -d "$tnow1")
 
-# Get sunrise and sunset times
-
-#!/bin/bash
-
-# Führe den hdate-Befehl aus und speichere die Ausgabe
+# Execute hdate to get sunrise and sunset times
 output=$(hdate --timezone $TIZO --latitude $LAT --longitude $LONG -t --not-sunset-aware)
 
-# Extrahiere die Werte und weise sie Variablen zu
+# Extract date and time values
 date=$(echo "$output" | grep -oP '(?<=, ).*(?=, \d{4})')
 year=$(echo "$output" | grep -oP '\d{4}')
 first_light=$(echo "$output" | grep -oP '(?<=first_light: )\d{2}:\d{2}')
@@ -64,7 +62,7 @@ first_stars=$(echo "$output" | grep -oP '(?<=first_stars: )\d{2}:\d{2}')
 three_stars=$(echo "$output" | grep -oP '(?<=three_stars: )\d{2}:\d{2}')
 sun_hour=$(echo "$output" | grep -oP '(?<=sun_hour: )\d{2}:\d{2}')
 
-# Ausgabe der Variablen zur Überprüfung
+# Sheow values of time variables
 echo "First Light: $first_light"
 echo "Sunrise: $sunrise"
 echo "Sunset : $sunset"
@@ -73,21 +71,89 @@ echo "Three Stars: $three_stars"
 echo "Sun Hour: $sun_hour"
 
 # Convert time to seconds
-ssunrise=$(date +%s -d "$tsunrise")
-ssunset=$(date +%s -d "$tsunset")
+ssunrise=$(date +%s -d "$sunrise")
+ssunset=$(date +%s -d "$sunset")
 sfirstlight=$(date +%s -d "$first_light")
+
+# Function to get overridden start or end time
+get_overridden_time() {
+    local event=$1
+    local now=$(date +"%Y-%m-%d %H:%M:%S")
+    local year=$(date +"%Y")
+    local month=$(date +"%m")
+    local day=$(date +"%d")
+
+    for override in "${override_times[@]}"; do
+        # Split the override string into its parts
+        IFS='|' read -ra PARTS <<< "$override"
+        local y=""
+        local m=""
+        local d=""
+        local e=""
+        local t=""
+        local time=""
+
+        for part in "${PARTS[@]}"; do
+            case $part in
+                y:* ) y=${part#y:};;
+                m:* ) m=${part#m:};;
+                d:* ) d=${part#d:};;
+                e:* ) e=${part#e:};;
+                t:* ) t=${part#t:};;
+                *   ) time=$part;;  # This should be the time part
+            esac
+        done
+
+        if [ "$e" != "$event" ]; then
+            continue  # Skip if the event does not match
+        fi
+
+        # Check year, month, and day
+        if [ -n "$y" ] && [ "$y" != "$year" ]; then
+            continue
+        fi
+        if [ -n "$m" ] && [ "$m" != "$month" ]; then
+            continue
+        fi
+        if [ -n "$d" ] && [ "$d" != "$day" ]; then
+            continue
+        fi
+
+        echo "$time|$t"
+        return
+    done
+    echo ""
+}
 
 # Calculate script start and end times, including offset
 sstart=$((offSTART * 3600))
-if [ "$startevent" = "firstlight" ]; then
-    echo "The script shall start at first light: $first_light with an offset of -$offSTART."
-    sstarttime=$((sfirstlight - sstart))
-else
-    echo "The script shall start at sunrise: $sunrise with an offset of -$offSTART."
-    sstarttime=$((ssunrise - sstart))
-fi
 send=$((offEND * 3600))
-sendtime=$((ssunset + send))
+
+# Check for overridden start time
+overridden_start=$(get_overridden_time "Start")
+IFS='|' read -r time description <<< "$overridden_start"
+if [ -n "$time" ]; then
+    echo "Overriding start time with $time. Description: $description"
+    sstarttime=$(date +%s -d "$time")
+else
+    if [ "$startevent" = "firstlight" ]; then
+        echo "The script shall start at first light: $first_light with an offset of -$offSTART."
+        sstarttime=$((sfirstlight - sstart))
+    else
+        echo "The script shall start at sunrise: $sunrise with an offset of -$offSTART."
+        sstarttime=$((ssunrise - sstart))
+    fi
+fi
+
+# Check for overridden end time
+overridden_end=$(get_overridden_time "End")
+IFS='|' read -r time description <<< "$overridden_end"
+if [ -n "$time" ]; then
+    echo "Overriding end time with $time. Description: $description"
+    sendtime=$(date +%s -d "$time")
+else
+    sendtime=$((ssunset + send))
+fi
 
 # Wait until start time if not in debug mode
 if [ "$debug" -eq 0 ]; then
@@ -114,6 +180,7 @@ replace_placeholders() {
     output_string=$(echo "$output_string" | sed "s|\[START-OFFSET\]|$offSTART|")
     output_string=$(echo "$output_string" | sed "s|\[SUNSET\]|$sunset|")
     output_string=$(echo "$output_string" | sed "s|\[SUNSET-OFFSET\]|$offEND|")
+    output_string=$(echo "$output_string" | sed "s|\[EVENT-DESCRIPTION\]|$description|")
     output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT\]|$i|")
     output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT-FORMATED\]|$formatted_i|")
     output_string=$(echo "$output_string" | sed "s|\[INTERVAL\]|$INTERVAL|")
@@ -153,14 +220,13 @@ fi
 
 ## INTRO END ##
 
-
 #### LOOP ####
 echo "---------------------------------------------------------------------------"
 echo "Loop through capturing images until sunset every $INTERVAL seconds"
 echo "or for $z pictures if debug ($debug) is on." 
 echo "---------------------------------------------------------------------------"
 
-while [ $fin -eq 1 ]; do
+while [ "$fin" -eq 1 ]; do
     # Calculate sleep time based on last image capture
     tnow2=$(date +%H:%M:%S)
     snow2=$(date +%s -d "$tnow2")
@@ -240,23 +306,30 @@ while [ $fin -eq 1 ]; do
         fi
     fi
 
-    i=$((i + 1))
-
-    # Check if it's time to end the loop
-    if [ $debug -eq 1 ]; then
-        echo "Debugging mode is on. Current iteration: $i."
+    # Check if it's time to end the loop or to wait for the next interval
+    if [ "$debug" -eq 1 ]; then
+        echo "Debugging mode is on. Current iteration: $i. Maximum iterations: $z."
         if [ $i -gt $z ]; then
             echo "Setting exit flag."
             fin=0
+        else
+             # Increment picture counter
+            i=$((i + 1))
         fi
-    elif [ $snow1 -gt $sendtime ]; then
-        echo "$tnow1 is the time to exit the loop. Sunset at $tsunset. Offset $offEND hrs. Exit continuous image creation."
-        fin=0
-    fi
 
-    # Sleep for the interval
-    echo "Interval is $INTERVAL, difference is $sdiff ($snow2 - $snow1). Sleeping for $tsleep second(s)..."
-    sleep "$tsleep"
+    elif [ "$snow1" -gt "$sendtime" ]; then
+        echo "It is $tnow1 ($snow1). $sendtime ($tsunset +$offENDh) is the time to exit the loop. EXIT continuous image creation."
+        fin=0
+    else
+        fin=1
+
+        # Sleep for the interval
+        echo "Interval is $INTERVAL s, difference is $sdiff s ($snow2 - $snow1). Sleeping for $tsleep second(s)..."
+        sleep "$tsleep"
+
+        # Increment picture counter
+        i=$((i + 1))
+    fi
 
 done
 
