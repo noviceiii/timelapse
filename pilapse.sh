@@ -3,6 +3,7 @@
 # Raspi Time Lapse from sunrise to sunset with text overlay,
 # Backup on remote Linux server, upload to YouTube.
 # Requires rpicam-apps (formerly libcamera-apps), hdate, bc and ffmpeg.
+# The optional bird detection requires python3-opencv and a model file, see get_model.sh.
 
 # @Version 5.2.0, 13.01.2025.   added functionality to replace placeholders for YouTube title and description
 # @Version 5.2.1, 15.01.2025.   added functionality to replace placeholders in description
@@ -19,6 +20,7 @@
 # @Version 5.3.6, 10.10.2026.   placeholders: every occurrence is replaced, special characters in values are safe, spellings from the readme work
 # @Version 5.3.7, 10.10.2026.   overlay text is passed to ffmpeg as a file, no escaping of special characters needed anymore
 # @Version 5.3.8, 10.10.2026.   description of a start override is no longer lost when there is no end override
+# @Version 5.4.0, 10.10.2026.   added optional bird detection: counts birds on each picture, shows the number in the overlay and frames them
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -47,6 +49,19 @@ fin=1                                               # Flag to continue loop
 # Give up after this many failed pictures in a row (optional in config file)
 MAX_CAPTURE_FAILS="${MAX_CAPTURE_FAILS:-10}"
 
+# Bird detection (optional in config file, off by default)
+BIRD_DETECTION_ENABLED="${BIRD_DETECTION_ENABLED:-0}"
+BIRD_SCRIPT="${BIRD_SCRIPT:-$script_dir/detect_birds.py}"
+BIRD_MODEL="${BIRD_MODEL:-$script_dir/model/yolox_tiny.onnx}"
+BIRD_MODEL_SIZE="${BIRD_MODEL_SIZE:-416}"
+BIRD_CLASSES="${BIRD_CLASSES:-bird}"
+BIRD_CONFIDENCE="${BIRD_CONFIDENCE:-0.3}"
+BIRD_TILES="${BIRD_TILES:-3x2}"
+BIRD_DRAW_BOXES="${BIRD_DRAW_BOXES:-1}"
+birds=""                                            # Birds on the current picture
+birdmax=0                                           # Highest number of birds on a single picture
+birdimages=0                                        # Number of pictures with at least one bird
+
 # Camera command: taken from the config file if set, otherwise detected.
 # Newer Raspberry Pi OS releases name it rpicam-jpeg, older ones libcamera-jpeg.
 if [ -z "$CAMERA_CMD" ]; then
@@ -69,6 +84,7 @@ fail() {
 reqcmds="$CAMERA_CMD hdate bc ffmpeg"
 [ "$SCP_UPLOAD_ENABLED" = "1" ] && reqcmds="$reqcmds scp"
 [ "$YOUTUBE_UPLOAD_ENABLED" = "1" ] && reqcmds="$reqcmds python3"
+[ "$BIRD_DETECTION_ENABLED" = "1" ] && reqcmds="$reqcmds python3"
 for reqcmd in $reqcmds; do
     command -v "$reqcmd" >/dev/null 2>&1 || fail "Command $reqcmd not found."
 done
@@ -94,6 +110,27 @@ if [ "$OVERLAY_ENABLED" = "1" ] && [ ! -f "$FPATH" ]; then
 fi
 if [ "$YOUTUBE_UPLOAD_ENABLED" = "1" ] && [ ! -f "$YOUTUBE_SCRIPT_PATH" ]; then
     fail "YouTube upload script '$YOUTUBE_SCRIPT_PATH' not found."
+fi
+
+
+# Bird detection: check the files and run the model once, so a missing
+# package or an unsuitable model shows up now and not on the first picture
+if [ "$BIRD_DETECTION_ENABLED" = "1" ]; then
+    echo "Bird detection is enabled. Classes: $BIRD_CLASSES. Model: $BIRD_MODEL. Tiles: $BIRD_TILES."
+    [[ "$BIRD_DRAW_BOXES" =~ ^[01]$ ]] || fail "BIRD_DRAW_BOXES must be 0 or 1, is '$BIRD_DRAW_BOXES'."
+    if [ ! -f "$BIRD_SCRIPT" ]; then
+        fail "Bird detection script '$BIRD_SCRIPT' not found."
+    elif [ ! -f "$BIRD_MODEL" ]; then
+        fail "Bird detection model '$BIRD_MODEL' not found. Run get_model.sh to download it."
+    elif ! python3 -c "import cv2" 2>/dev/null; then
+        fail "Bird detection needs OpenCV for Python. Install it with: sudo apt install python3-opencv"
+    elif ! birdtest=$(python3 "$BIRD_SCRIPT" --selftest --model "$BIRD_MODEL" --size "$BIRD_MODEL_SIZE" \
+            --classes "$BIRD_CLASSES" --confidence "$BIRD_CONFIDENCE" --tiles "$BIRD_TILES" 2>&1); then
+        fail "Bird detection self test failed: $birdtest"
+    fi
+    if [ "$OVERLAY_ENABLED" != "1" ] || [[ "$OVERLAY_TEXT" != *"[BIRD-COUNT]"* ]]; then
+        echo "Note: the number of birds is only shown on the pictures if OVERLAY_ENABLED=1 and OVERLAY_TEXT contains [BIRD-COUNT]."
+    fi
 fi
 
 if [ "$errors" -gt 0 ]; then
@@ -297,6 +334,9 @@ replace_placeholders() {
     out=${out//\[YOUTUBE-LANGUAGE\]/"$YOUTUBE_LANGUAGE"}
     out=${out//\[YOUTUBE-PRIVACY\]/"$YOUTUBE_PRIVACY"}
     out=${out//\[YOUTUBE-TAGS\]/"$YOUTUBE_TAGS"}
+    out=${out//\[BIRD-COUNT\]/"$birds"}
+    out=${out//\[BIRD-MAX\]/"$birdmax"}
+    out=${out//\[BIRD-IMAGES\]/"$birdimages"}
 
     printf '%s\n' "$out"
 }
@@ -342,6 +382,25 @@ while [ "$fin" -eq 1 ]; do
         echo "Unable to create picture $i as $wdir/pic_$n.jpg. Skipping this picture."
         rm -f "$wdir/pic_$n.jpg"
         picok=0
+    fi
+
+    # Count the birds on the picture if enabled in config. A failed detection
+    # does not discard the picture; the count is shown as "?" in that case.
+    if [ "$picok" -eq 1 ] && [ "$BIRD_DETECTION_ENABLED" -eq 1 ]; then
+        birdargs=(--model "$BIRD_MODEL" --size "$BIRD_MODEL_SIZE" --classes "$BIRD_CLASSES"
+                  --confidence "$BIRD_CONFIDENCE" --tiles "$BIRD_TILES")
+        # Draw a frame around each bird directly into the picture
+        [ "$BIRD_DRAW_BOXES" -eq 1 ] && birdargs+=(--annotate "$wdir/pic_$n.jpg")
+
+        sbird=$(date +%s)
+        if birds=$(python3 "$BIRD_SCRIPT" "$wdir/pic_$n.jpg" "${birdargs[@]}") && [[ "$birds" =~ ^[0-9]+$ ]]; then
+            [ "$birds" -gt "$birdmax" ] && birdmax=$birds
+            [ "$birds" -gt 0 ] && birdimages=$((birdimages + 1))
+            echo "* bird detection: $birds on picture $i (took $(( $(date +%s) - sbird )) s). Maximum so far: $birdmax."
+        else
+            echo "* bird detection failed on picture $i."
+            birds="?"
+        fi
     fi
 
     # Add text overlay text to image if enabled in config
