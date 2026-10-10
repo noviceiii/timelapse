@@ -11,6 +11,7 @@
 # ..                            fixed escaping of percentage sign in overlay text.
 # ..                            fixed too early end of loop. Added more debug output.
 # @Version 5.3.0, 10.02.2025.   added new config parameters to overwrite start and end time
+# @Version 5.3.1, 10.10.2026.   fixed interval timing: pictures are now taken at a constant interval
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -227,15 +228,9 @@ echo "or for $z pictures if debug ($debug) is on."
 echo "---------------------------------------------------------------------------"
 
 while [ "$fin" -eq 1 ]; do
-    # Calculate sleep time based on last image capture
-    tnow2=$(date +%H:%M:%S)
-    snow2=$(date +%s -d "$tnow2")
-    sdiff=$((snow2 - snow1))
-    tsleep=$((INTERVAL - sdiff))
-    tsleep=$((tsleep < 0 ? 0 : tsleep))
-
+    # Remember when this iteration started; the sleep time is derived from it below
     tnow1=$(date +%H:%M:%S)
-    snow1=$(date +%s -d "$tnow1")
+    snow1=$(date +%s)
 
     # Format picture number
     n=$(printf "%05d" $i)
@@ -318,13 +313,16 @@ while [ "$fin" -eq 1 ]; do
         fi
 
     elif [ "$snow1" -gt "$sendtime" ]; then
-        echo "It is $tnow1 ($snow1). $sendtime ($tsunset +$offENDh) is the time to exit the loop. EXIT continuous image creation."
+        echo "It is $tnow1 ($snow1). $sendtime is the time to exit the loop. EXIT continuous image creation."
         fin=0
     else
         fin=1
 
-        # Sleep for the interval
-        echo "Interval is $INTERVAL s, difference is $sdiff s ($snow2 - $snow1). Sleeping for $tsleep second(s)..."
+        # Sleep for the rest of the interval: interval minus the time this iteration took
+        selapsed=$(( $(date +%s) - snow1 ))
+        tsleep=$((INTERVAL - selapsed))
+        tsleep=$((tsleep < 0 ? 0 : tsleep))
+        echo "Interval is $INTERVAL s, this iteration took $selapsed s. Sleeping for $tsleep second(s)..."
         sleep "$tsleep"
 
         # Increment picture counter
