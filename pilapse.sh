@@ -2,7 +2,7 @@
 
 # Raspi Time Lapse from sunrise to sunset with text overlay,
 # Backup on remote Linux server, upload to YouTube.
-# Requires libcamera and hdate.
+# Requires rpicam-apps (formerly libcamera-apps), hdate, bc and ffmpeg.
 
 # @Version 5.2.0, 13.01.2025.   added functionality to replace placeholders for YouTube title and description
 # @Version 5.2.1, 15.01.2025.   added functionality to replace placeholders in description
@@ -15,6 +15,7 @@
 # @Version 5.3.2, 10.10.2026.   video is now also created when the text overlay is disabled
 # @Version 5.3.3, 10.10.2026.   upload results are checked; the video is kept if an upload fails or none was done
 # @Version 5.3.4, 10.10.2026.   a failed picture is skipped instead of aborting the whole day; debug mode takes exactly z pictures
+# @Version 5.3.5, 10.10.2026.   configuration, commands and hdate times are checked before waiting; camera command is detected (rpicam-jpeg or libcamera-jpeg)
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -43,6 +44,60 @@ fin=1                                               # Flag to continue loop
 # Give up after this many failed pictures in a row (optional in config file)
 MAX_CAPTURE_FAILS="${MAX_CAPTURE_FAILS:-10}"
 
+# Camera command: taken from the config file if set, otherwise detected.
+# Newer Raspberry Pi OS releases name it rpicam-jpeg, older ones libcamera-jpeg.
+if [ -z "$CAMERA_CMD" ]; then
+    if command -v rpicam-jpeg >/dev/null 2>&1; then
+        CAMERA_CMD="rpicam-jpeg"
+    else
+        CAMERA_CMD="libcamera-jpeg"
+    fi
+fi
+echo "Camera command: $CAMERA_CMD"
+
+# Collect all configuration problems before the script starts to wait
+errors=0
+fail() {
+    echo "ERROR: $1"
+    errors=$((errors + 1))
+}
+
+# Required commands
+reqcmds="$CAMERA_CMD hdate bc ffmpeg"
+[ "$SCP_UPLOAD_ENABLED" = "1" ] && reqcmds="$reqcmds scp"
+[ "$YOUTUBE_UPLOAD_ENABLED" = "1" ] && reqcmds="$reqcmds python3"
+for reqcmd in $reqcmds; do
+    command -v "$reqcmd" >/dev/null 2>&1 || fail "Command $reqcmd not found."
+done
+
+# Numeric settings
+is_uint='^[0-9]+$'
+[[ "$INTERVAL" =~ $is_uint ]] && [ "$INTERVAL" -ge 1 ] || fail "INTERVAL must be a whole number of seconds >= 1, is '$INTERVAL'."
+[[ "$RESW" =~ $is_uint ]] || fail "RESW must be a whole number, is '$RESW'."
+[[ "$RESH" =~ $is_uint ]] || fail "RESH must be a whole number, is '$RESH'."
+[[ "$offSTART" =~ $is_uint ]] || fail "offSTART must be a whole number of hours, is '$offSTART'."
+[[ "$offEND" =~ $is_uint ]] || fail "offEND must be a whole number of hours, is '$offEND'."
+[[ "$MAX_CAPTURE_FAILS" =~ $is_uint ]] && [ "$MAX_CAPTURE_FAILS" -ge 1 ] || fail "MAX_CAPTURE_FAILS must be a whole number >= 1, is '$MAX_CAPTURE_FAILS'."
+[[ "$debug" =~ ^[01]$ ]] || fail "debug must be 0 or 1, is '$debug'."
+if [ "$debug" = "1" ]; then
+    [[ "$z" =~ $is_uint ]] && [ "$z" -ge 1 ] || fail "z must be a whole number >= 1 in debug mode, is '$z'."
+fi
+[[ "$DT" =~ ^[0-9]*\.?[0-9]+$ ]] || fail "DT must be a positive number, is '$DT'."
+
+# Files and directories
+[ -d "$TDIR" ] && [ -w "$TDIR" ] || fail "Temporary directory '$TDIR' does not exist or is not writable."
+if [ "$OVERLAY_ENABLED" = "1" ] && [ ! -f "$FPATH" ]; then
+    fail "Font file '$FPATH' not found."
+fi
+if [ "$YOUTUBE_UPLOAD_ENABLED" = "1" ] && [ ! -f "$YOUTUBE_SCRIPT_PATH" ]; then
+    fail "YouTube upload script '$YOUTUBE_SCRIPT_PATH' not found."
+fi
+
+if [ "$errors" -gt 0 ]; then
+    echo "$errors configuration problem(s) found. Exiting."
+    exit 1
+fi
+
 # Timestamp for filenames and directories
 ts_path=$(date +%Y-%m-%d_%H%M%S)
 tsfriendly=$(date +%d.%m.%Y)
@@ -51,6 +106,10 @@ tsfriendly=$(date +%d.%m.%Y)
 wdir="$TDIR/$ts_path"
 resxy="${RESW}x${RESH}"                             # Image/video size
 fr=$(echo "scale=0; 1/$DT" | bc)                    # Calculate frame rate
+if ! [[ "$fr" =~ $is_uint ]] || [ "$fr" -lt 1 ]; then
+    echo "ERROR: DT=$DT results in an invalid frame rate '$fr'. DT must be between 0 and 1. Exiting."
+    exit 1
+fi
 
 # Current time
 tnow1=$(date +%H:%M:%S)
@@ -78,6 +137,21 @@ echo "Sunset : $sunset"
 echo "First Stars: $first_stars"
 echo "Three Stars: $three_stars"
 echo "Sun Hour: $sun_hour"
+
+# Stop here if hdate did not deliver usable times. An empty value would
+# silently be read as midnight and the script would end after one picture.
+is_hhmm='^[0-9]{2}:[0-9]{2}$'
+[[ "$sunrise" =~ $is_hhmm ]] || fail "No sunrise time from hdate."
+[[ "$sunset" =~ $is_hhmm ]] || fail "No sunset time from hdate."
+if [ "$startevent" = "firstlight" ]; then
+    [[ "$first_light" =~ $is_hhmm ]] || fail "No first light time from hdate. Set startevent to \"sunrise\" if there is none at your location."
+fi
+if [ "$errors" -gt 0 ]; then
+    echo "hdate output was:"
+    echo "$output"
+    echo "Exiting."
+    exit 1
+fi
 
 # Convert time to seconds
 ssunrise=$(date +%s -d "$sunrise")
@@ -246,7 +320,7 @@ while [ "$fin" -eq 1 ]; do
     # Capture image. A failed picture is skipped and its number is used again,
     # so the numbering stays without gaps for the video creation.
     picok=1
-    if libcamera-jpeg -n --width "$RESW" --height "$RESH" --output "$wdir/pic_$n.jpg"; then
+    if "$CAMERA_CMD" -n --width "$RESW" --height "$RESH" --output "$wdir/pic_$n.jpg"; then
         echo "Successfully created picture $i as $wdir/pic_$n.jpg."
     else
         echo "Unable to create picture $i as $wdir/pic_$n.jpg. Skipping this picture."
@@ -293,14 +367,6 @@ while [ "$fin" -eq 1 ]; do
 
         echo "Overlay text parsed:"
         echo "$otext"
-
-        # Test if font file exists
-        if [ -f "$FPATH" ]; then
-            echo "Font file $FPATH found. Prooceed."
-        else
-            echo "Font file $FPATH not found. Exiting."
-            exit 1
-        fi
 
         # Add text overlay to image
         if ffmpeg -hide_banner -loglevel panic -i "$wdir/pic_$n.jpg" \

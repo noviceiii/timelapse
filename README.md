@@ -18,9 +18,10 @@ This Bash script automates the process of creating a time-lapse video from sunri
 ## Prerequisites
 
 - Raspberry Pi with Bash shell
-- libcamera installed for image capture
+- rpicam-apps (formerly libcamera-apps) installed for image capture; the script detects `rpicam-jpeg` or `libcamera-jpeg`
 - A font file for the text overlay
 - hdate for calculating sunrise/sunset times
+- bc for calculations
 - ffmpeg for video creation and text overlay
 - Netatmo script for weather lookups (if enabled)
 - Python and the youtube-upload script for YouTube uploads (if enabled)
@@ -40,6 +41,8 @@ This Bash script automates the process of creating a time-lapse video from sunri
    - `vidpref`: Prefix for the video file name.
    - `LONG`, `LAT`, `TIZO`: Location settings for time calculations. TIZO is the hour offset of your UTC time. E.g., 1 for UTC+1.
    - `TDIR`: Temporary directory for image storage.
+   - `CAMERA_CMD`: Optional. Camera command; detected if empty.
+   - `MAX_CAPTURE_FAILS`: Optional. Number of failed pictures in a row before the capture ends (default 10). A single failed picture is skipped.
    - `FPATH`: Path to the font file for the text overlay.
 
 Get the longitude and latitude from [here](https://latitudelongitude.org/map-address-latlong) in decimal format.
