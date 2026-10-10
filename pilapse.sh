@@ -13,6 +13,7 @@
 # @Version 5.3.0, 10.02.2025.   added new config parameters to overwrite start and end time
 # @Version 5.3.1, 10.10.2026.   fixed interval timing: pictures are now taken at a constant interval
 # @Version 5.3.2, 10.10.2026.   video is now also created when the text overlay is disabled
+# @Version 5.3.3, 10.10.2026.   upload results are checked; the video is kept if an upload fails or none was done
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -365,10 +366,20 @@ echo "--------------------------------------------------------------------------
 echo "OUTRO"
 echo "---------------------------------------------------------------------------"
 
+# Track upload results: the working directory is only deleted after a successful upload
+uploads_ok=0
+uploads_failed=0
+
 # Optional SCP upload
 if [ "$SCP_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_SCP_UPLOAD" -eq 1 ]); then
     echo "Uploading video to remote server..."
-    scp "$wdir/$finfile.mp4" "$SCP_SERVER_PATH"
+    if scp "$wdir/$finfile.mp4" "$SCP_SERVER_PATH"; then
+        echo "Successfully uploaded video to remote server."
+        uploads_ok=$((uploads_ok + 1))
+    else
+        echo "Unable to upload video to remote server."
+        uploads_failed=$((uploads_failed + 1))
+    fi
 else
     echo "No remote server upload since upload is disabled or debug mode is enabled."
 fi
@@ -381,35 +392,48 @@ if [ "$YOUTUBE_UPLOAD_ENABLED" -eq 1 ] && ([ "$debug" -eq 0 ] || [ "$FORCE_YT_UP
     YOUTUBE_TITLE=$(replace_placeholders "$YOUTUBE_TITLE")
     echo "YouTube title: $YOUTUBE_TITLE"
 
-    # Replace placeholders in description: TODO: Create a function for this
+    # Replace placeholders in description
     YOUTUBE_DESC=$(replace_placeholders "$YOUTUBE_DESC")
     echo "YouTube description: $YOUTUBE_DESC"
 
     # Call youtube-upload script
-    python3 $YOUTUBE_SCRIPT_PATH \
-    --videofile="$wdir/$finfile.mp4" \
-    --title="$YOUTUBE_TITLE" \
-    --description="$YOUTUBE_DESC" \
-    --category="$YOUTUBE_CATEGORY" \
-    --keywords="$YOUTUBE_TAGS" \
-    --privacyStatus="$YOUTUBE_PRIVACY" \
-    --latitude="$LAT" \
-    --longitude="$LONG" \
-    --playlistId="$PLAYLIST" \
-    --language="$YOUTUBE_LANGUAGE"
-    
+    if python3 "$YOUTUBE_SCRIPT_PATH" \
+        --videofile="$wdir/$finfile.mp4" \
+        --title="$YOUTUBE_TITLE" \
+        --description="$YOUTUBE_DESC" \
+        --category="$YOUTUBE_CATEGORY" \
+        --keywords="$YOUTUBE_TAGS" \
+        --privacyStatus="$YOUTUBE_PRIVACY" \
+        --latitude="$LAT" \
+        --longitude="$LONG" \
+        --playlistId="$PLAYLIST" \
+        --language="$YOUTUBE_LANGUAGE"; then
+        echo "Successfully uploaded video to YouTube."
+        uploads_ok=$((uploads_ok + 1))
+    else
+        echo "Unable to upload video to YouTube."
+        uploads_failed=$((uploads_failed + 1))
+    fi
 else
-    echo "No youtube upload since debug mode is enabled and upload not foreced."
+    echo "No youtube upload since upload is disabled or debug mode is enabled and upload not forced."
 fi
 
-# Cleanup
-if [ "$debug" -eq 0 ]; then
+# Cleanup: keep the video unless it is safely stored somewhere else
+exitcode=0
+if [ "$debug" -ne 0 ]; then
+    echo "Won't delete directory $wdir as debugging is enabled."
+elif [ "$uploads_failed" -gt 0 ]; then
+    echo "$uploads_failed upload(s) failed. Keeping $wdir/$finfile.mp4 for a manual upload."
+    exitcode=1
+elif [ "$uploads_ok" -eq 0 ]; then
+    echo "No upload was done. Keeping $wdir/$finfile.mp4."
+else
     echo "Deleting temp directory $wdir."
     rm -r "$wdir"
-else
-    echo "Won't delete directory $wdir as debugging is enabled."
 fi
 
 echo "---------------------------------------------------------------------------"
 echo "** All done. **"
 echo "==========================================================================="
+
+exit "$exitcode"
