@@ -17,6 +17,7 @@
 # @Version 5.3.4, 10.10.2026.   a failed picture is skipped instead of aborting the whole day; debug mode takes exactly z pictures
 # @Version 5.3.5, 10.10.2026.   configuration, commands and hdate times are checked before waiting; camera command is detected (rpicam-jpeg or libcamera-jpeg)
 # @Version 5.3.6, 10.10.2026.   placeholders: every occurrence is replaced, special characters in values are safe, spellings from the readme work
+# @Version 5.3.7, 10.10.2026.   overlay text is passed to ffmpeg as a file, no escaping of special characters needed anymore
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -361,24 +362,16 @@ while [ "$fin" -eq 1 ]; do
 
         # Prepare text overlay; replace placeholders
         otext=$(replace_placeholders "$OVERLAY_TEXT")
-        # Prepare text overlay; escape special characters
-        otext=${otext//:/\\:}
-        otext=${otext//,/\\,}
-        otext=${otext//|/\\|}
-        otext=${otext//°/\\°}
-        otext=${otext//(/\\(}
-        otext=${otext//)/\\)}
-        otext=${otext//#/\\#}
-        otext=${otext//\!/\\!}
-        otext=${otext//\?/\\?}
-        otext=${otext//%/\\\\%}
-
         echo "Overlay text parsed:"
         echo "$otext"
 
+        # Write the text to a file. ffmpeg reads it as it is, so special
+        # characters in the text do not need to be escaped.
+        printf '%s' "$otext" > "$wdir/overlay.txt"
+
         # Add text overlay to image
         if ffmpeg -hide_banner -loglevel panic -i "$wdir/pic_$n.jpg" \
-            -vf "drawtext=fontfile='$FPATH':text='$otext':fontcolor=white:fontsize=48:box=1:boxcolor=black@0.5:boxborderw=5:x=w-tw-10:y=h-th-50" "$wdir/pic_txt_$n.jpg"; then
+            -vf "drawtext=fontfile='$FPATH':textfile='$wdir/overlay.txt':expansion=none:fontcolor=white:fontsize=48:box=1:boxcolor=black@0.5:boxborderw=5:x=w-tw-10:y=h-th-50" "$wdir/pic_txt_$n.jpg"; then
             echo "Successfully added text to picture $i as $wdir/pic_txt_$n.jpg."
         else
             echo "Unable to add text to picture $i as $wdir/pic_txt_$n.jpg. Skipping this picture."
@@ -426,6 +419,8 @@ while [ "$fin" -eq 1 ]; do
 done
 
 ## LOOP END ##
+
+rm -f "$wdir/overlay.txt"
 
 # From here on the counter holds the number of pictures created
 i=$ipics
