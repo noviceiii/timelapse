@@ -16,6 +16,7 @@
 # @Version 5.3.3, 10.10.2026.   upload results are checked; the video is kept if an upload fails or none was done
 # @Version 5.3.4, 10.10.2026.   a failed picture is skipped instead of aborting the whole day; debug mode takes exactly z pictures
 # @Version 5.3.5, 10.10.2026.   configuration, commands and hdate times are checked before waiting; camera command is detected (rpicam-jpeg or libcamera-jpeg)
+# @Version 5.3.6, 10.10.2026.   placeholders: every occurrence is replaced, special characters in values are safe, spellings from the readme work
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -252,37 +253,44 @@ fi
 
 # Function to replace placeholders in a given string with actual values
 replace_placeholders() {
-    local input_string="$1"
-    local output_string="$input_string"
+    local out="$1"
 
     # leading zero for image count
-    local formatted_i=$(printf "%05d" "$i")
+    local formatted_i
+    formatted_i=$(printf "%05d" "$i")
 
-    output_string=$(echo "$output_string" | sed "s|\[SUNRISE\]|$sunrise|")
-    output_string=$(echo "$output_string" | sed "s|\[FIRSTLIGHT\]|$first_light|")
-    output_string=$(echo "$output_string" | sed "s|\[START-OFFSET\]|$offSTART|")
-    output_string=$(echo "$output_string" | sed "s|\[SUNSET\]|$sunset|")
-    output_string=$(echo "$output_string" | sed "s|\[SUNSET-OFFSET\]|$offEND|")
-    output_string=$(echo "$output_string" | sed "s|\[EVENT-DESCRIPTION\]|$description|")
-    output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT\]|$i|")
-    output_string=$(echo "$output_string" | sed "s|\[IMAGE-COUNT-FORMATED\]|$formatted_i|")
-    output_string=$(echo "$output_string" | sed "s|\[INTERVAL\]|$INTERVAL|")
-    output_string=$(echo "$output_string" | sed "s|\[HEIGHT\]|$RESH|")
-    output_string=$(echo "$output_string" | sed "s|\[LENGTH\]|$RESW|")
-    output_string=$(echo "$output_string" | sed "s|\[FRAMERATE\]|$fr|")
-    output_string=$(echo "$output_string" | sed "s|\[FORMATED_DATE\]|$tsfriendly|")
-    output_string=$(echo "$output_string" | sed "s|\[FORMATED_DATETIME\]|$tsoverlay|")
-    output_string=$(echo "$output_string" | sed "s|\[INT-TEMP\]|$obrdtmp|")
-    output_string=$(echo "$output_string" | sed "s|\[WEATHER\]|$weather|")
-    output_string=$(echo "$output_string" | sed "s|\[LAT\]|$LAT|")
-    output_string=$(echo "$output_string" | sed "s|\[LONG\]|$LONG|")
-    output_string=$(echo "$output_string" | sed "s|\[PLAYLIST\]|$PLAYLIST|")
-    output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-CATEGORY\]|$YOUTUBE_CATEGORY|")
-    output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-LANGUAGE\]|$YOUTUBE_LANGUAGE|")
-    output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-PRIVACY\]|$YOUTUBE_PRIVACY|")
-    output_string=$(echo "$output_string" | sed "s|\[YOUTUBE-TAGS\]|$YOUTUBE_TAGS|")
+    # Replace every occurrence. The quotes around the values keep special
+    # characters in them (like & | or \) literal.
+    out=${out//\[SUNRISE\]/"$sunrise"}
+    out=${out//\[FIRSTLIGHT\]/"$first_light"}
+    out=${out//\[START-OFFSET\]/"$offSTART"}
+    out=${out//\[SUNSET\]/"$sunset"}
+    out=${out//\[SUNSET-OFFSET\]/"$offEND"}
+    out=${out//\[EVENT-DESCRIPTION\]/"$description"}
+    out=${out//\[IMAGE-COUNT\]/"$i"}
+    out=${out//\[IMAGE-COUNT-FORMATED\]/"$formatted_i"}
+    out=${out//\[INTERVAL\]/"$INTERVAL"}
+    out=${out//\[HEIGHT\]/"$RESH"}
+    out=${out//\[LENGTH\]/"$RESW"}
+    out=${out//\[WIDTH\]/"$RESW"}
+    out=${out//\[FRAMERATE\]/"$fr"}
+    out=${out//\[FORMATED_DATE\]/"$tsfriendly"}
+    out=${out//\[FORMATTED_DATE\]/"$tsfriendly"}
+    out=${out//\[FORMATED_DATETIME\]/"$tsoverlay"}
+    out=${out//\[FORMATTED_DATETIME\]/"$tsoverlay"}
+    out=${out//\[INT-TEMP\]/"$obrdtmp"}
+    out=${out//\[WEATHER\]/"$weather"}
+    out=${out//\[LAT\]/"$LAT"}
+    out=${out//\[LATITUDE\]/"$LAT"}
+    out=${out//\[LONG\]/"$LONG"}
+    out=${out//\[LONGITUDE\]/"$LONG"}
+    out=${out//\[PLAYLIST\]/"$PLAYLIST"}
+    out=${out//\[YOUTUBE-CATEGORY\]/"$YOUTUBE_CATEGORY"}
+    out=${out//\[YOUTUBE-LANGUAGE\]/"$YOUTUBE_LANGUAGE"}
+    out=${out//\[YOUTUBE-PRIVACY\]/"$YOUTUBE_PRIVACY"}
+    out=${out//\[YOUTUBE-TAGS\]/"$YOUTUBE_TAGS"}
 
-    echo "$output_string"
+    printf '%s\n' "$out"
 }
 
 ### INIT END ###

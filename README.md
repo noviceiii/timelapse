@@ -55,23 +55,23 @@ Get the longitude and latitude from [here](https://latitudelongitude.org/map-add
 
 ## Placeholders for YouTube Title, Description, and Script Text
 
-- `[SUNRISE]`: Replaced with the time of the sunrise (`$tsunrise`).
+- `[SUNRISE]`: Replaced with the time of the sunrise (`$sunrise`).
 - `[FIRSTLIGHT]`: Replaced with the time of the first light (`$first_light`).
 - `[START-OFFSET]`: Replaced with the time of the offset to the sunrise or first light (`$offSTART`).
-- `[SUNSET]`: Replaced with the time of the sunset (`$tsunset`).
+- `[SUNSET]`: Replaced with the time of the sunset (`$sunset`).
 - `[SUNSET-OFFSET]`: Replaced with the time of the offset to the sunset (`$offEND`).
 - `[IMAGE-COUNT]`: Number of images created (`$i`).
 - `[IMAGE-COUNT-FORMATED]`: Number of images created with leading zero (`$formatted_i`).
 - `[INTERVAL]`: Interval at which pictures are taken (`$INTERVAL`).
 - `[HEIGHT]`: The height of the image (`$RESH`).
-- `[WIDTH]`: The width of the image (`$RESW`) - Note: in the code, this is referred to as LENGTH.
+- `[WIDTH]`: The width of the image (`$RESW`). `[LENGTH]` works as well.
 - `[FRAMERATE]`: The framerate used (`$fr`).
-- `[FORMATTED_DATE]`: Formatted date as dd.mm.yyyy (`$tsfriendly`).
-- `[FORMATED_DATETIME]`: Replaced with the value of the variable ts (`$tsoverlay`).
+- `[FORMATTED_DATE]`: Formatted date as dd.mm.yyyy (`$tsfriendly`). `[FORMATED_DATE]` works as well.
+- `[FORMATTED_DATETIME]`: Date and time of the picture as dd.mm.yyyy hh:mm:ss (`$tsoverlay`). `[FORMATED_DATETIME]` works as well.
 - `[INT-TEMP]`: Internal Temperature of device (`$obrdtmp`).
 - `[WEATHER]`: Weather information if enabled (`$weather`).
-- `[LATITUDE]`: Latitude of the location (`$LAT`).
-- `[LONGITUDE]`: Longitude of the location (`$LONG`).
+- `[LATITUDE]`: Latitude of the location (`$LAT`). `[LAT]` works as well.
+- `[LONGITUDE]`: Longitude of the location (`$LONG`). `[LONG]` works as well.
 - `[PLAYLIST]`: YouTube playlist name or ID (`$PLAYLIST`).
 - `[YOUTUBE-CATEGORY]`: YouTube video category (`$YOUTUBE_CATEGORY`).
 - `[YOUTUBE-LANGUAGE]`: Language of the YouTube video (`$YOUTUBE_LANGUAGE`).
