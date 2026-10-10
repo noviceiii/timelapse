@@ -14,6 +14,7 @@
 # @Version 5.3.1, 10.10.2026.   fixed interval timing: pictures are now taken at a constant interval
 # @Version 5.3.2, 10.10.2026.   video is now also created when the text overlay is disabled
 # @Version 5.3.3, 10.10.2026.   upload results are checked; the video is kept if an upload fails or none was done
+# @Version 5.3.4, 10.10.2026.   a failed picture is skipped instead of aborting the whole day; debug mode takes exactly z pictures
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -34,8 +35,13 @@ echo "==========================================================================
 echo "Initialization"
 echo "---------------------------------------------------------------------------"
 
-i=1                                                 # Picture counter
+i=1                                                 # Picture counter (number of the picture being taken)
+ipics=0                                             # Number of successfully created pictures
+fails=0                                             # Consecutive failed pictures
 fin=1                                               # Flag to continue loop
+
+# Give up after this many failed pictures in a row (optional in config file)
+MAX_CAPTURE_FAILS="${MAX_CAPTURE_FAILS:-10}"
 
 # Timestamp for filenames and directories
 ts_path=$(date +%Y-%m-%d_%H%M%S)
@@ -237,16 +243,19 @@ while [ "$fin" -eq 1 ]; do
     # Format picture number
     n=$(printf "%05d" $i)
 
-    # Capture image
+    # Capture image. A failed picture is skipped and its number is used again,
+    # so the numbering stays without gaps for the video creation.
+    picok=1
     if libcamera-jpeg -n --width "$RESW" --height "$RESH" --output "$wdir/pic_$n.jpg"; then
         echo "Successfully created picture $i as $wdir/pic_$n.jpg."
     else
-        echo "Unable to create picture $i as $wdir/pic_$n.jpg."
-        exit 1
+        echo "Unable to create picture $i as $wdir/pic_$n.jpg. Skipping this picture."
+        rm -f "$wdir/pic_$n.jpg"
+        picok=0
     fi
 
     # Add text overlay text to image if enabled in config
-    if [ "$OVERLAY_ENABLED" -eq 1 ]; then
+    if [ "$picok" -eq 1 ] && [ "$OVERLAY_ENABLED" -eq 1 ]; then
 
         echo "* overlay is enabled."
         
@@ -298,20 +307,32 @@ while [ "$fin" -eq 1 ]; do
             -vf "drawtext=fontfile='$FPATH':text='$otext':fontcolor=white:fontsize=48:box=1:boxcolor=black@0.5:boxborderw=5:x=w-tw-10:y=h-th-50" "$wdir/pic_txt_$n.jpg"; then
             echo "Successfully added text to picture $i as $wdir/pic_txt_$n.jpg."
         else
-            echo "Unable to add text to picture $i as $wdir/pic_txt_$n.jpg."
-            exit 1
+            echo "Unable to add text to picture $i as $wdir/pic_txt_$n.jpg. Skipping this picture."
+            rm -f "$wdir/pic_$n.jpg" "$wdir/pic_txt_$n.jpg"
+            picok=0
+        fi
+    fi
+
+    # Count the picture, or give up after too many failures in a row
+    if [ "$picok" -eq 1 ]; then
+        ipics=$((ipics + 1))
+        fails=0
+        i=$((i + 1))
+    else
+        fails=$((fails + 1))
+        echo "Failed pictures in a row: $fails of $MAX_CAPTURE_FAILS allowed."
+        if [ "$fails" -ge "$MAX_CAPTURE_FAILS" ]; then
+            echo "Too many failed pictures in a row. EXIT continuous image creation."
+            break
         fi
     fi
 
     # Check if it's time to end the loop or to wait for the next interval
     if [ "$debug" -eq 1 ]; then
-        echo "Debugging mode is on. Current iteration: $i. Maximum iterations: $z."
-        if [ $i -gt $z ]; then
+        echo "Debugging mode is on. Pictures created: $ipics. Maximum pictures: $z."
+        if [ "$ipics" -ge "$z" ]; then
             echo "Setting exit flag."
             fin=0
-        else
-             # Increment picture counter
-            i=$((i + 1))
         fi
 
     elif [ "$snow1" -gt "$sendtime" ]; then
@@ -326,14 +347,20 @@ while [ "$fin" -eq 1 ]; do
         tsleep=$((tsleep < 0 ? 0 : tsleep))
         echo "Interval is $INTERVAL s, this iteration took $selapsed s. Sleeping for $tsleep second(s)..."
         sleep "$tsleep"
-
-        # Increment picture counter
-        i=$((i + 1))
     fi
 
 done
 
 ## LOOP END ##
+
+# From here on the counter holds the number of pictures created
+i=$ipics
+
+if [ "$ipics" -eq 0 ]; then
+    echo "No picture was created. Exiting."
+    rmdir "$wdir" 2>/dev/null
+    exit 1
+fi
 
 
 ### Video ###
