@@ -18,6 +18,7 @@
 # @Version 5.3.5, 10.10.2026.   configuration, commands and hdate times are checked before waiting; camera command is detected (rpicam-jpeg or libcamera-jpeg)
 # @Version 5.3.6, 10.10.2026.   placeholders: every occurrence is replaced, special characters in values are safe, spellings from the readme work
 # @Version 5.3.7, 10.10.2026.   overlay text is passed to ffmpeg as a file, no escaping of special characters needed anymore
+# @Version 5.3.8, 10.10.2026.   description of a start override is no longer lost when there is no end override
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -216,10 +217,10 @@ send=$((offEND * 3600))
 
 # Check for overridden start time
 overridden_start=$(get_overridden_time "Start")
-IFS='|' read -r time description <<< "$overridden_start"
-if [ -n "$time" ]; then
-    echo "Overriding start time with $time. Description: $description"
-    sstarttime=$(date +%s -d "$time")
+IFS='|' read -r start_override start_desc <<< "$overridden_start"
+if [ -n "$start_override" ]; then
+    echo "Overriding start time with $start_override. Description: $start_desc"
+    sstarttime=$(date +%s -d "$start_override")
 else
     if [ "$startevent" = "firstlight" ]; then
         echo "The script shall start at first light: $first_light with an offset of -$offSTART."
@@ -232,12 +233,18 @@ fi
 
 # Check for overridden end time
 overridden_end=$(get_overridden_time "End")
-IFS='|' read -r time description <<< "$overridden_end"
-if [ -n "$time" ]; then
-    echo "Overriding end time with $time. Description: $description"
-    sendtime=$(date +%s -d "$time")
+IFS='|' read -r end_override end_desc <<< "$overridden_end"
+if [ -n "$end_override" ]; then
+    echo "Overriding end time with $end_override. Description: $end_desc"
+    sendtime=$(date +%s -d "$end_override")
 else
     sendtime=$((ssunset + send))
+fi
+
+# Description for the placeholder [EVENT-DESCRIPTION]: start and end text, whichever is set
+description="$start_desc"
+if [ -n "$end_desc" ]; then
+    description="${description:+$description / }$end_desc"
 fi
 
 # Wait until start time if not in debug mode
