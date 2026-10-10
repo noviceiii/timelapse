@@ -12,6 +12,7 @@
 # ..                            fixed too early end of loop. Added more debug output.
 # @Version 5.3.0, 10.02.2025.   added new config parameters to overwrite start and end time
 # @Version 5.3.1, 10.10.2026.   fixed interval timing: pictures are now taken at a constant interval
+# @Version 5.3.2, 10.10.2026.   video is now also created when the text overlay is disabled
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -341,8 +342,15 @@ echo "--------------------------------------------------------------------------
 
 finfile="${vidpref}_${tsfriendly}"
 
+# Use the pictures with text overlay if enabled, the plain pictures otherwise
+if [ "$OVERLAY_ENABLED" -eq 1 ]; then
+    vidinput="$wdir/pic_txt_%05d.jpg"
+else
+    vidinput="$wdir/pic_%05d.jpg"
+fi
+
 # Create video
-if ffmpeg -hide_banner -loglevel panic -r "$fr" -i "$wdir/pic_txt_%05d.jpg" "$wdir/$finfile.mp4"; then
+if ffmpeg -hide_banner -loglevel panic -r "$fr" -i "$vidinput" "$wdir/$finfile.mp4"; then
     echo "Successfully created final video as $wdir/$finfile.mp4."
 else
     echo "Unable to create final video as $wdir/$finfile.mp4."
