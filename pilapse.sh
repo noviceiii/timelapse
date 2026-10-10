@@ -21,6 +21,7 @@
 # @Version 5.3.7, 10.10.2026.   overlay text is passed to ffmpeg as a file, no escaping of special characters needed anymore
 # @Version 5.3.8, 10.10.2026.   description of a start override is no longer lost when there is no end override
 # @Version 5.4.0, 10.10.2026.   added optional bird detection: counts birds on each picture, shows the number in the overlay and frames them
+# @Version 5.4.1, 10.10.2026.   duration of the bird detection is measured, logged and shown on the picture in debug mode; summary at the end of the capture
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -61,6 +62,18 @@ BIRD_DRAW_BOXES="${BIRD_DRAW_BOXES:-1}"
 birds=""                                            # Birds on the current picture
 birdmax=0                                           # Highest number of birds on a single picture
 birdimages=0                                        # Number of pictures with at least one bird
+birdtime=""                                         # Duration of the detection on the current picture in seconds
+birdtimeavg=""                                      # Average duration of the detection in seconds
+birdtimemax=""                                      # Longest duration of the detection in seconds
+msbirdsum=0                                         # Sum of all detection durations in milliseconds
+msbirdmax=0                                         # Longest detection duration in milliseconds
+birdruns=0                                          # Number of detections done
+slowpics=0                                          # Pictures that took longer than the interval
+
+# Format milliseconds as seconds with one decimal, e.g. 1234 -> 1.2
+ms_to_s() {
+    printf "%d.%d" $(($1 / 1000)) $((($1 % 1000) / 100))
+}
 
 # Camera command: taken from the config file if set, otherwise detected.
 # Newer Raspberry Pi OS releases name it rpicam-jpeg, older ones libcamera-jpeg.
@@ -337,6 +350,9 @@ replace_placeholders() {
     out=${out//\[BIRD-COUNT\]/"$birds"}
     out=${out//\[BIRD-MAX\]/"$birdmax"}
     out=${out//\[BIRD-IMAGES\]/"$birdimages"}
+    out=${out//\[BIRD-TIME\]/"$birdtime"}
+    out=${out//\[BIRD-TIME-AVG\]/"$birdtimeavg"}
+    out=${out//\[BIRD-TIME-MAX\]/"$birdtimemax"}
 
     printf '%s\n' "$out"
 }
@@ -392,15 +408,25 @@ while [ "$fin" -eq 1 ]; do
         # Draw a frame around each bird directly into the picture
         [ "$BIRD_DRAW_BOXES" -eq 1 ] && birdargs+=(--annotate "$wdir/pic_$n.jpg")
 
-        sbird=$(date +%s)
+        # Measure how long the detection takes, including the start of Python
+        # and the loading of the model: this is the time added to each picture
+        msbird=$(date +%s%3N)
         if birds=$(python3 "$BIRD_SCRIPT" "$wdir/pic_$n.jpg" "${birdargs[@]}") && [[ "$birds" =~ ^[0-9]+$ ]]; then
             [ "$birds" -gt "$birdmax" ] && birdmax=$birds
             [ "$birds" -gt 0 ] && birdimages=$((birdimages + 1))
-            echo "* bird detection: $birds on picture $i (took $(( $(date +%s) - sbird )) s). Maximum so far: $birdmax."
         else
             echo "* bird detection failed on picture $i."
             birds="?"
         fi
+        msbird=$(( $(date +%s%3N) - msbird ))
+
+        birdruns=$((birdruns + 1))
+        msbirdsum=$((msbirdsum + msbird))
+        [ "$msbird" -gt "$msbirdmax" ] && msbirdmax=$msbird
+        birdtime=$(ms_to_s "$msbird")
+        birdtimeavg=$(ms_to_s $((msbirdsum / birdruns)))
+        birdtimemax=$(ms_to_s "$msbirdmax")
+        echo "* bird detection: $birds on picture $i, took $birdtime s (average $birdtimeavg s, longest $birdtimemax s). Most birds so far: $birdmax."
     fi
 
     # Add text overlay text to image if enabled in config
@@ -428,6 +454,12 @@ while [ "$fin" -eq 1 ]; do
 
         # Prepare text overlay; replace placeholders
         otext=$(replace_placeholders "$OVERLAY_TEXT")
+        # In debug mode the duration of the bird detection is shown on the picture,
+        # unless the overlay text already contains it
+        if [ "$debug" -eq 1 ] && [ "$BIRD_DETECTION_ENABLED" -eq 1 ] && [[ "$OVERLAY_TEXT" != *"[BIRD-TIME]"* ]]; then
+            otext="$otext | Detection: $birdtime s"
+        fi
+
         echo "Overlay text parsed:"
         echo "$otext"
 
@@ -476,6 +508,7 @@ while [ "$fin" -eq 1 ]; do
 
         # Sleep for the rest of the interval: interval minus the time this iteration took
         selapsed=$(( $(date +%s) - snow1 ))
+        [ "$selapsed" -gt "$INTERVAL" ] && slowpics=$((slowpics + 1))
         tsleep=$((INTERVAL - selapsed))
         tsleep=$((tsleep < 0 ? 0 : tsleep))
         echo "Interval is $INTERVAL s, this iteration took $selapsed s. Sleeping for $tsleep second(s)..."
@@ -490,6 +523,18 @@ rm -f "$wdir/overlay.txt"
 
 # From here on the counter holds the number of pictures created
 i=$ipics
+
+# Summary of the capture
+echo "---------------------------------------------------------------------------"
+echo "Pictures created: $ipics."
+if [ "$birdruns" -gt 0 ]; then
+    echo "Bird detection: most birds on one picture $birdmax, pictures with birds $birdimages."
+    echo "Bird detection time per picture: average $birdtimeavg s, longest $birdtimemax s."
+fi
+if [ "$slowpics" -gt 0 ]; then
+    echo "WARNING: $slowpics picture(s) took longer than the interval of $INTERVAL s, so they were taken late."
+    echo "Increase INTERVAL, or reduce BIRD_TILES or use a smaller model if the bird detection is enabled."
+fi
 
 if [ "$ipics" -eq 0 ]; then
     echo "No picture was created. Exiting."
