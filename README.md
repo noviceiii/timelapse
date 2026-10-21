@@ -37,7 +37,7 @@ Everything except the capture and the video is optional and switched on in the c
 | `pilapse.sh` | The script. |
 | `config.example.cfg` | Example configuration. Copy it to `config.cfg`. |
 | `detect_birds.py` | Counts the birds on a picture. Called by `pilapse.sh` if the bird detection is enabled. |
-| `get_model.sh` | Downloads the model for the bird detection. |
+| `get_model.sh` | Downloads the model for the bird detection and converts it for OpenCV. |
 
 ## Requirements
 
@@ -51,7 +51,7 @@ Everything except the capture and the video is optional and switched on in the c
 | Weather | a text file with the weather | e.g. [Netatmo Weather](https://github.com/noviceiii/netatmoweather) |
 | Remote backup | `scp` with key login to the server | preinstalled |
 | YouTube upload | `python3` and [YouTube Upload](https://github.com/noviceiii/youtube-upload) | see that repository |
-| Bird detection | `python3` with OpenCV, a model file | `sudo apt install python3-opencv`, then `./get_model.sh` |
+| Bird detection | `python3` with OpenCV 4.5.1 or newer, a model file | `sudo apt install python3-opencv`, then `./get_model.sh` |
 
 The script checks at start that everything needed for the enabled features is there, and stops with a message if not.
 
@@ -225,9 +225,9 @@ OVERLAY_TEXT="[FORMATTED_DATETIME] | Birds: [BIRD-COUNT]"
 
 Try it with `debug=1` first. At start the script loads the model once and runs it; if OpenCV cannot use the model, it stops with a message.
 
-`get_model.sh` converts the model after the download: the first layer of the YOLOX models ("Focus") is removed and done by `detect_birds.py` instead, because OpenCV before 4.5.2 cannot load it. This is the case for `python3-opencv` 4.5.1 of Debian Bullseye (Raspberry Pi OS Legacy), which fails with `Slice layer only supports steps = 1`. The converted model works with every OpenCV version and gives the same results. No additional package is needed for the conversion.
+`get_model.sh` downloads the model and converts it: the first layer of the YOLOX models ("Focus") is removed and done by `detect_birds.py` instead. OpenCV before 4.5.2, e.g. `python3-opencv` 4.5.1 of Debian Bullseye, cannot load this layer and fails with `Slice layer only supports steps = 1`. The converted model gives the same results and works with older and newer OpenCV versions. The conversion needs no additional package.
 
-A model downloaded with an older `get_model.sh` can be converted in place:
+A model downloaded with `get_model.sh` before version 5.4.2 is not converted yet. Convert it in place (the error message at start shows the same command):
 
 ```bash
 python3 detect_birds.py --model model/yolox_tiny.onnx --convert model/yolox_tiny.onnx
@@ -280,7 +280,7 @@ The picture is searched as a whole and additionally in tiles, because birds are 
 
 Set `BIRD_MODEL` to the downloaded file if it is not `model/yolox_tiny.onnx`.
 
-The models are the YOLOX models published by [Megvii](https://github.com/Megvii-BaseDetection/YOLOX) under the Apache License 2.0, trained on the COCO data set. `get_model.sh` removes their first layer, see [Setup](#setup).
+The models are the YOLOX models published by [Megvii](https://github.com/Megvii-BaseDetection/YOLOX) under the Apache License 2.0, trained on the COCO data set, converted by `get_model.sh` as described in [Setup](#setup).
 
 ## What happens when something fails
 
