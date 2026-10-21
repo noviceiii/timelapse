@@ -225,6 +225,14 @@ OVERLAY_TEXT="[FORMATTED_DATETIME] | Birds: [BIRD-COUNT]"
 
 Try it with `debug=1` first. At start the script loads the model once and runs it; if OpenCV cannot use the model, it stops with a message.
 
+`get_model.sh` converts the model after the download: the first layer of the YOLOX models ("Focus") is removed and done by `detect_birds.py` instead, because OpenCV before 4.5.2 cannot load it. This is the case for `python3-opencv` 4.5.1 of Debian Bullseye (Raspberry Pi OS Legacy), which fails with `Slice layer only supports steps = 1`. The converted model works with every OpenCV version and gives the same results. No additional package is needed for the conversion.
+
+A model downloaded with an older `get_model.sh` can be converted in place:
+
+```bash
+python3 detect_birds.py --model model/yolox_tiny.onnx --convert model/yolox_tiny.onnx
+```
+
 ### Settings
 
 | Setting | Meaning |
@@ -272,7 +280,7 @@ The picture is searched as a whole and additionally in tiles, because birds are 
 
 Set `BIRD_MODEL` to the downloaded file if it is not `model/yolox_tiny.onnx`.
 
-The models are the YOLOX models published by [Megvii](https://github.com/Megvii-BaseDetection/YOLOX) under the Apache License 2.0, trained on the COCO data set.
+The models are the YOLOX models published by [Megvii](https://github.com/Megvii-BaseDetection/YOLOX) under the Apache License 2.0, trained on the COCO data set. `get_model.sh` removes their first layer, see [Setup](#setup).
 
 ## What happens when something fails
 
@@ -290,6 +298,7 @@ The models are the YOLOX models published by [Megvii](https://github.com/Megvii-
 
 | Version | Changes |
 |---|---|
+| 5.4.2 | Bird detection works with OpenCV 4.5.1 (Debian Bullseye): model conversion removes the Focus layer, done in `detect_birds.py` instead. |
 | 5.4.1 | Duration of the bird detection is measured, logged and shown on the picture in debug mode. Summary at the end of the capture. Readme and example configuration revised. |
 | 5.4.0 | Optional bird detection. |
 | 5.3.8 | Description of a start override is no longer lost. |
