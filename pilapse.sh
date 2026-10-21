@@ -22,6 +22,7 @@
 # @Version 5.3.8, 10.10.2026.   description of a start override is no longer lost when there is no end override
 # @Version 5.4.0, 10.10.2026.   added optional bird detection: counts birds on each picture, shows the number in the overlay and frames them
 # @Version 5.4.1, 10.10.2026.   duration of the bird detection is measured, logged and shown on the picture in debug mode; summary at the end of the capture
+# @Version 5.4.2, 21.10.2026.   bird detection works with OpenCV 4.5.1 (Debian Bullseye): get_model.sh converts the model, detect_birds.py does the Focus layer
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")

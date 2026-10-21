@@ -10,7 +10,13 @@
 #   yolox_tiny   default                                        (BIRD_MODEL_SIZE=416)
 #   yolox_s      finds the most birds, several times slower     (BIRD_MODEL_SIZE=640)
 #
+# After the download the model is converted with detect_birds.py --convert:
+# its first layer ("Focus") is removed and done by detect_birds.py instead.
+# OpenCV before 4.5.2 (e.g. python3-opencv 4.5.1 of Debian Bullseye) cannot
+# load this layer. The converted model works with every OpenCV version.
+#
 # @Version 5.4.0, 10.10.2026.   first version
+# @Version 5.4.2, 21.10.2026.   model is converted after the download (Focus layer removed) for OpenCV 4.5.1
 
 model="${1:-yolox_tiny}"
 
@@ -41,5 +47,13 @@ if ! echo "$checksum  $target.part" | sha256sum -c --quiet -; then
     exit 1
 fi
 
-mv "$target.part" "$target"
+# Remove the Focus layer, so OpenCV 4.5.1 can load the model
+if ! python3 "$script_dir/detect_birds.py" --model "$target.part" --convert "$target"; then
+    mv "$target.part" "$target"
+    echo "The model could not be converted, the original is saved as $target."
+    echo "It only works with OpenCV 4.5.2 or newer. Install python3-opencv and convert it with:"
+    echo "python3 $script_dir/detect_birds.py --model $target --convert $target"
+    exit 1
+fi
+rm -f "$target.part"
 echo "Model saved as $target."
