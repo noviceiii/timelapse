@@ -48,13 +48,19 @@ Everything except the capture and the video is optional and switched on in the c
 | Capture | `rpicam-jpeg` or `libcamera-jpeg` | preinstalled (`rpicam-apps`) |
 | Sun times | `hdate` | `sudo apt install hdate` |
 | Calculations | `bc` | `sudo apt install bc` |
-| Overlay and video | `ffmpeg` | `sudo apt install ffmpeg` |
-| Text overlay | `python3` with Pillow (recommended) | `sudo apt install python3-pil` |
-| Text overlay | a font file (`.ttf`) | e.g. from Google Fonts; DejaVu Sans is used if it is missing |
+| Video, simple text overlay | `ffmpeg` | `sudo apt install ffmpeg` |
+| Text overlay | a font file (`.ttf`) | optional, e.g. from Google Fonts; without it DejaVu Sans is used (`fonts-dejavu-core`, comes with ffmpeg) |
+| Text overlay that always fits, icons | `python3` with Pillow | optional: `sudo apt install python3-pil` |
 | Weather | a text file with the weather | e.g. [Netatmo Weather](https://github.com/noviceiii/netatmoweather) |
 | Remote backup | `scp` with key login to the server | preinstalled |
 | YouTube upload | `python3` and [YouTube Upload](https://github.com/noviceiii/youtube-upload) | see that repository |
 | Bird detection | `python3` with OpenCV 4.5.1 or newer, a model file | `sudo apt install python3-opencv`, then `./get_model.sh` |
+
+`python3` is preinstalled on Raspberry Pi OS. Everything for all features at once:
+
+```bash
+sudo apt install hdate bc ffmpeg python3-pil python3-opencv
+```
 
 The script checks at start that everything needed for the enabled features is there, and stops with a message if not.
 
@@ -93,7 +99,7 @@ Pictures and video are stored in a subdirectory of `TDIR` named after date and t
 
 ## Configuration
 
-All settings are in `config.cfg`. Each one is explained there; this is the overview.
+All settings are in `config.cfg`. Each one is explained there; this is the overview. The settings of the bird detection are described in [Bird detection](#bird-detection).
 
 ### Debug
 
@@ -123,7 +129,7 @@ An entry of `override_times` consists of parts separated by `|`:
 | `d:10` | Day with two digits. Optional; without it the entry applies every day. |
 | `e:Start` or `e:End` | Whether the start or the end time is set. |
 | `08:15` | The time. |
-| `t:Some text` | Description, available as placeholder `[EVENT-DESCRIPTION]`. Must not contain `|`. |
+| `t:Some text` | Description, available as placeholder `[EVENT-DESCRIPTION]`. Must not contain `\|`. |
 
 Example: `"m:12|d:31|e:End|23:59|t:New Year's Eve"` ends the capture at 23:59 on every 31 December. The first matching entry is used. Offsets and `startevent` are ignored for an overridden time.
 
@@ -141,6 +147,8 @@ Example: `"m:12|d:31|e:End|23:59|t:New Year's Eve"` ends the capture at 23:59 on
 
 ### Text overlay and weather
 
+Settings marked optional can be left out of `config.cfg`; the default is used then.
+
 | Setting | Meaning |
 |---|---|
 | `OVERLAY_ENABLED` | `1`: write `OVERLAY_TEXT` onto each picture. |
@@ -150,24 +158,26 @@ Example: `"m:12|d:31|e:End|23:59|t:New Year's Eve"` ends the capture at 23:59 on
 | `OVERLAY_MAX_LINES` | Optional. A text that is too long is wrapped at the separators ` \| ` onto up to this many lines. Default `2`. `1`: only made smaller. |
 | `OVERLAY_POSITION` | Optional. `bottom-right` (default), `bottom-center`, `bottom-left`, `top-right`, `top-center` or `top-left`. |
 | `OVERLAY_MARGIN` | Optional. Distance to the border in percent of the picture height. Default `2`. |
-| `OVERLAY_BOX` | Optional. Opacity of the dark box behind the text in percent. Default `50`. `0`: no box, the text gets a dark outline instead. |
+| `OVERLAY_BOX` | Optional. Opacity of the dark box behind the text in percent. Default `50`. `0`: no box; below `25` the text gets a dark outline. |
 | `OVERLAY_COLOR` | Optional. Colour of the text and the icons, a name like `white` or `#RRGGBB`. Default `white`. |
 | `OVERLAY_ICONS` | Optional. Directory of the icons. Default `icons` next to the script. |
 | `WEATHER_ENABLED` | `1`: read the weather for the placeholder `[WEATHER]`. |
 | `WFILE` | Text file with the weather. Its content is shown as it is. |
 
-How the text is placed:
+The text is written in `OVERLAY_SIZE` at `OVERLAY_POSITION`, `OVERLAY_MARGIN` away from the border. It is UTF-8, so `°`, umlauts and the like work as long as the font has them. Who writes the text depends on Pillow; the log says at start which one is used:
 
-- The text is written in `OVERLAY_SIZE` at `OVERLAY_POSITION`, `OVERLAY_MARGIN` away from the border, on a box with rounded corners.
-- If it is too wide for the picture, it is made a little smaller (up to 15 %), otherwise it is wrapped at ` | ` onto two lines of about equal length, and made smaller if it still does not fit. So the text is never cut off.
-- Empty parts, e.g. ` |  | ` from an empty `[WEATHER]`, are left out.
-- Text is UTF-8, so `°`, umlauts and the like work, as long as the font has them.
+| | With `python3-pil`: `overlay.py` | Without: ffmpeg |
+|---|---|---|
+| Text too wide | Made up to 15 % smaller; if that is not enough, wrapped at ` \| ` onto up to `OVERLAY_MAX_LINES` lines of about equal length and made smaller until it fits. Never cut off. | Size estimated from the number of characters, never starts left of the margin. A very wide font can still be cut off at the right. |
+| Box | Rounded corners. `OVERLAY_BOX` below 25: dark outline around the text in addition | Square. `OVERLAY_BOX` below 25: dark outline instead of the box |
+| Icons | Shown | Left out |
+| Empty parts, e.g. from an empty `[WEATHER]` | Left out | Shown |
 
-With `python3-pil` installed, `overlay.py` writes the text: it measures the text exactly and can show icons. It took about 0.1 s per picture on a PC; on a Raspberry Pi expect a few tenths of a second, little compared to the bird detection. Without Pillow, ffmpeg writes the text as before: the size is estimated from the number of characters, the text never starts left of the margin, and icons are left out. The log says at start which one is used.
+`overlay.py` takes about 0.1 s per picture on a PC; on a Raspberry Pi expect a few tenths of a second, little compared to the bird detection.
 
 ### Icons
 
-`[ICON-NAME]` in `OVERLAY_TEXT` shows the picture `icons/name.png` in front of the text, in the size and colour of the text. Only the transparency of the PNG file is used, so any single-coloured icon on a transparent background works; add your own to the directory. Icons need `python3-pil` and are only shown on the pictures, not in the YouTube title or description.
+`[ICON-NAME]` in `OVERLAY_TEXT` shows the picture `icons/name.png` (name in lower case), in the size and colour of the text. Only the transparency of the PNG file is used, so any single-coloured icon on a transparent background works; add your own to the directory. Icons need `python3-pil` and are only shown on the pictures, not in the YouTube title or description.
 
 | Placeholder | Icon | Placeholder | Icon |
 |---|---|---|---|
@@ -186,10 +196,6 @@ OVERLAY_TEXT="[ICON-CLOCK] [FORMATTED_DATETIME] | [ICON-SUNRISE] [SUNRISE] | [IC
 ```
 
 The icons are from [Lucide](https://lucide.dev) 1.61.0 (ISC License, some icons MIT License from Feather), converted to white PNG files of 128 × 128 pixels. The license is in `icons/LICENSE`.
-
-### Bird detection
-
-See [Bird detection](#bird-detection).
 
 ### Remote server upload
 
@@ -238,11 +244,13 @@ Placeholders can be used in `OVERLAY_TEXT`, `YOUTUBE_TITLE` and `YOUTUBE_DESC`. 
 | `[BIRD-MAX]` | Highest number of birds on a single picture today so far. |
 | `[BIRD-IMAGES]` | Number of pictures with at least one bird today so far. |
 | `[BIRD-TIME]` | Duration of the bird detection on the picture in seconds, e.g. 1.2. |
-| `[BIRD-TIME-AVG]` | Average duration of the bird detection so far in seconds. |
-| `[BIRD-TIME-MAX]` | Longest duration of the bird detection so far in seconds. |
+| `[BIRD-TIME-AVG]` | Average duration of the bird detection in this run so far in seconds. |
+| `[BIRD-TIME-MAX]` | Longest duration of the bird detection in this run so far in seconds. |
 | `[PLAYLIST]`, `[YOUTUBE-CATEGORY]`, `[YOUTUBE-LANGUAGE]`, `[YOUTUBE-PRIVACY]`, `[YOUTUBE-TAGS]` | The setting of the same name. |
 
-`[INT-TEMP]`, `[WEATHER]`, `[FORMATTED_DATETIME]`, `[BIRD-COUNT]` and `[BIRD-TIME]` belong to a single picture. In the YouTube title and description they hold the values of the last picture.
+`[INT-TEMP]`, `[WEATHER]`, `[FORMATTED_DATETIME]`, `[BIRD-COUNT]` and `[BIRD-TIME]` belong to a single picture. In the YouTube title and description they hold the values of the last picture; `[BIRD-SUM]`, `[BIRD-MAX]` and `[BIRD-IMAGES]` hold the numbers of the whole day.
+
+Icons (`[ICON-BIRD]` and so on) work in `OVERLAY_TEXT` only, see [Icons](#icons).
 
 The older spellings `[FORMATED_DATE]`, `[FORMATED_DATETIME]`, `[LENGTH]` (for the width), `[LAT]` and `[LONG]` still work.
 
@@ -250,7 +258,7 @@ The older spellings `[FORMATED_DATE]`, `[FORMATED_DATETIME]`, `[LENGTH]` (for th
 
 The bird detection is disabled by default. It runs a YOLOX object detection model with OpenCV on each picture.
 
-### Setup
+### Install
 
 ```bash
 sudo apt install python3-opencv
@@ -292,15 +300,15 @@ python3 detect_birds.py --model model/yolox_tiny.onnx --convert model/yolox_tiny
 
 `[BIRD-SUM]`, `[BIRD-MAX]` and `[BIRD-IMAGES]` count for the whole day. The number on a single picture (`[BIRD-COUNT]`) changes from picture to picture; the sum only grows, so it is calmer to look at, e.g. "Birds today: 12" at 10 o'clock.
 
-- They are saved after each picture in `BIRD_STATE_FILE` as one line `date sum max pictures`, e.g. `2026-10-23 12 5 4`.
+- The sum counts sightings, not different birds: the same bird is counted on every picture it is on. A bird sitting in the picture for a minute at `INTERVAL=15` adds 4. `[BIRD-MAX]` is the better guess for the number of birds that were there at the same time.
+- The numbers are saved after each picture in `BIRD_STATE_FILE` (default `bird_state.txt`) as one line `date sum max pictures`, e.g. `2026-10-23 12 5 4`.
 - If the script is started again on the same day, it continues to count. On a new day, also during a run past midnight, it starts at 0.
 - Debug runs use their own file (`bird_state.txt.debug`), so a test does not change the numbers of the day.
-- In the YouTube title and description they hold the numbers of the whole day.
 
 ### What it does and what it does not
 
 - The model knows `bird` as a single class. Gulls, ducks, pigeons and other birds are all counted as bird; the species is not distinguished.
-- The number is a count per picture. The same bird is counted again on the next picture: a bird sitting in the picture for a minute at `INTERVAL=15` adds 4 to `[BIRD-SUM]`. The sum counts sightings, not different birds. `[BIRD-MAX]` is the better guess for the number of birds that were there at the same time.
+- The number is a count per picture; birds are not recognised again on the next picture (see [Daily numbers](#daily-numbers)).
 - Small or far away birds, birds in a dense flock and birds in front of a busy background are missed easily. Expect the number to be a lower estimate.
 - Other classes of the model can be counted too, e.g. `BIRD_CLASSES="bird,boat"`. Run `python3 detect_birds.py --model model/yolox_tiny.onnx --classes x` to list them.
 
@@ -312,9 +320,9 @@ Where the duration is shown:
 
 | Where | What |
 |---|---|
-| Log, for each picture | `* bird detection: 3 on picture 12, took 1.2 s (average 1.1 s, longest 1.4 s).` |
+| Log, for each picture | `* bird detection: 3 on picture 12, took 1.2 s (average 1.1 s, longest 1.4 s). Today: 25 in total, most on one picture 5.` |
 | Log, at the end of the capture | Average and longest duration, and a warning with the number of pictures that took longer than `INTERVAL`. |
-| On the picture, in debug mode | ` | Detection: 1.2 s` is appended to the overlay text. |
+| On the picture, in debug mode | ` \| Detection: 1.2 s` is appended to the overlay text. |
 | On the picture, always | Add `[BIRD-TIME]` to `OVERLAY_TEXT`. |
 
 ### Accuracy and speed
@@ -332,13 +340,15 @@ The picture is searched as a whole and additionally in tiles, because birds are 
 
 Set `BIRD_MODEL` to the downloaded file if it is not `model/yolox_tiny.onnx`.
 
-The models are the YOLOX models published by [Megvii](https://github.com/Megvii-BaseDetection/YOLOX) under the Apache License 2.0, trained on the COCO data set, converted by `get_model.sh` as described in [Setup](#setup).
+The models are the YOLOX models published by [Megvii](https://github.com/Megvii-BaseDetection/YOLOX) under the Apache License 2.0, trained on the COCO data set, converted by `get_model.sh` as described in [Install](#install).
 
 ## What happens when something fails
 
 | Situation | Behaviour |
 |---|---|
 | A setting, command or file is missing | The script stops at start with a list of the problems. |
+| The font file `FPATH` is missing | DejaVu Sans is used, with a note at start. |
+| `python3-pil` is not installed | ffmpeg writes the text, with a note at start. |
 | `hdate` delivers no sun times | The script stops at start. |
 | A picture cannot be taken or the text cannot be written | The picture is skipped. After `MAX_CAPTURE_FAILS` failures in a row the capture ends and the video is built from the pictures taken so far. |
 | The bird detection fails on a picture | The picture is kept, `[BIRD-COUNT]` shows `?`. |
