@@ -5,3 +5,6 @@ LICENSE
 config.cfg
 Roboto-Regular.ttf
 model/
+bird_state.txt*
+__pycache__/
+!icons/LICENSE

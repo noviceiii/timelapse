@@ -3,6 +3,7 @@
 # Raspi Time Lapse from sunrise to sunset with text overlay,
 # Backup on remote Linux server, upload to YouTube.
 # Requires rpicam-apps (formerly libcamera-apps), hdate, bc and ffmpeg.
+# The text overlay works best with python3-pil (overlay.py); without it ffmpeg writes the text.
 # The optional bird detection requires python3-opencv and a model file, see get_model.sh.
 
 # @Version 5.2.0, 13.01.2025.   added functionality to replace placeholders for YouTube title and description
@@ -23,6 +24,7 @@
 # @Version 5.4.0, 10.10.2026.   added optional bird detection: counts birds on each picture, shows the number in the overlay and frames them
 # @Version 5.4.1, 10.10.2026.   duration of the bird detection is measured, logged and shown on the picture in debug mode; summary at the end of the capture
 # @Version 5.4.2, 21.10.2026.   bird detection works with OpenCV 4.5.1 (Debian Bullseye): get_model.sh converts the model, detect_birds.py does the Focus layer
+# @Version 5.4.3, 23.10.2026.   overlay text always fits into the picture (overlay.py), box, position, size, icons; font fallback; daily bird sum [BIRD-SUM]
 
 # Configuration file path
 script_dir=$(dirname "$(realpath "$0")")
@@ -60,9 +62,12 @@ BIRD_CLASSES="${BIRD_CLASSES:-bird}"
 BIRD_CONFIDENCE="${BIRD_CONFIDENCE:-0.3}"
 BIRD_TILES="${BIRD_TILES:-3x2}"
 BIRD_DRAW_BOXES="${BIRD_DRAW_BOXES:-1}"
+BIRD_STATE_FILE="${BIRD_STATE_FILE:-$script_dir/bird_state.txt}"
 birds=""                                            # Birds on the current picture
-birdmax=0                                           # Highest number of birds on a single picture
-birdimages=0                                        # Number of pictures with at least one bird
+birdsum=0                                           # Birds on all pictures of today added up
+birdmax=0                                           # Highest number of birds on a single picture today
+birdimages=0                                        # Number of pictures with at least one bird today
+birdday=""                                          # Day the numbers above belong to (YYYY-MM-DD)
 birdtime=""                                         # Duration of the detection on the current picture in seconds
 birdtimeavg=""                                      # Average duration of the detection in seconds
 birdtimemax=""                                      # Longest duration of the detection in seconds
@@ -70,6 +75,47 @@ msbirdsum=0                                         # Sum of all detection durat
 msbirdmax=0                                         # Longest detection duration in milliseconds
 birdruns=0                                          # Number of detections done
 slowpics=0                                          # Pictures that took longer than the interval
+
+# Text overlay (optional in config file)
+OVERLAY_SIZE="${OVERLAY_SIZE:-3.5}"                 # Height of the text in percent of the picture height
+OVERLAY_MAX_LINES="${OVERLAY_MAX_LINES:-2}"         # Wrap a long text at " | " onto up to this many lines
+OVERLAY_POSITION="${OVERLAY_POSITION:-bottom-right}"
+OVERLAY_MARGIN="${OVERLAY_MARGIN:-2}"               # Distance to the border in percent of the picture height
+OVERLAY_BOX="${OVERLAY_BOX:-50}"                    # Opacity of the box behind the text in percent, 0 = outline instead
+OVERLAY_COLOR="${OVERLAY_COLOR:-white}"
+OVERLAY_ICONS="${OVERLAY_ICONS:-$script_dir/icons}"
+OVERLAY_SCRIPT="$script_dir/overlay.py"
+overlaypil=0                                        # 1 if overlay.py (Pillow) writes the text, 0 for ffmpeg
+ofont=""                                            # Font file used for the overlay
+
+# Daily bird numbers: kept in a small file, so a restart on the same day
+# continues to count and a new day starts at 0. Format: "YYYY-MM-DD sum max images"
+bird_state_load() {
+    local day sum max images
+    birdday=$(date +%F)
+    birdsum=0; birdmax=0; birdimages=0
+    if [ -r "$BIRD_STATE_FILE" ] && read -r day sum max images < "$BIRD_STATE_FILE" \
+        && [ "$day" = "$birdday" ] && [[ "$sum" =~ ^[0-9]+$ ]] && [[ "$max" =~ ^[0-9]+$ ]] && [[ "$images" =~ ^[0-9]+$ ]]; then
+        birdsum=$sum; birdmax=$max; birdimages=$images
+    fi
+}
+
+# Add the birds of one picture to today's numbers and save them
+bird_state_add() {
+    local today
+    today=$(date +%F)
+    # New day while running: start again at 0
+    if [ "$today" != "$birdday" ]; then
+        birdday=$today; birdsum=0; birdmax=0; birdimages=0
+    fi
+    birdsum=$((birdsum + $1))
+    [ "$1" -gt "$birdmax" ] && birdmax=$1
+    [ "$1" -gt 0 ] && birdimages=$((birdimages + 1))
+    if ! { printf '%s %s %s %s\n' "$birdday" "$birdsum" "$birdmax" "$birdimages" > "$BIRD_STATE_FILE.tmp" \
+            && mv -f "$BIRD_STATE_FILE.tmp" "$BIRD_STATE_FILE"; } 2>/dev/null; then
+        echo "* unable to save the bird numbers to $BIRD_STATE_FILE."
+    fi
+}
 
 # Format milliseconds as seconds with one decimal, e.g. 1234 -> 1.2
 ms_to_s() {
@@ -119,8 +165,33 @@ fi
 
 # Files and directories
 [ -d "$TDIR" ] && [ -w "$TDIR" ] || fail "Temporary directory '$TDIR' does not exist or is not writable."
-if [ "$OVERLAY_ENABLED" = "1" ] && [ ! -f "$FPATH" ]; then
-    fail "Font file '$FPATH' not found."
+if [ "$OVERLAY_ENABLED" = "1" ]; then
+    # Font: the one from the config file, otherwise a common font of Raspberry Pi OS
+    for ofont in "$FPATH" /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf \
+        /usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf \
+        /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf \
+        /usr/share/fonts/truetype/freefont/FreeSans.ttf ""; do
+        [ -n "$ofont" ] && [ -f "$ofont" ] && break
+    done
+    if [ -z "$ofont" ]; then
+        fail "Font file '$FPATH' not found and no other font found. Set FPATH or install fonts-dejavu-core."
+    elif [ "$ofont" != "$FPATH" ]; then
+        echo "Note: font file '$FPATH' not found, using $ofont instead."
+    fi
+    [[ "$OVERLAY_SIZE" =~ ^[0-9]*\.?[0-9]+$ ]] || fail "OVERLAY_SIZE must be a number (percent of the picture height), is '$OVERLAY_SIZE'."
+    [[ "$OVERLAY_MARGIN" =~ ^[0-9]*\.?[0-9]+$ ]] || fail "OVERLAY_MARGIN must be a number (percent of the picture height), is '$OVERLAY_MARGIN'."
+    [[ "$OVERLAY_MAX_LINES" =~ ^[1-9]$ ]] || fail "OVERLAY_MAX_LINES must be a number from 1 to 9, is '$OVERLAY_MAX_LINES'."
+    [[ "$OVERLAY_BOX" =~ ^([0-9]|[1-9][0-9]|100)$ ]] || fail "OVERLAY_BOX must be a number from 0 to 100 (percent), is '$OVERLAY_BOX'."
+    [[ "$OVERLAY_POSITION" =~ ^(top|bottom)-(left|center|right)$ ]] || fail "OVERLAY_POSITION must be top-left, top-center, top-right, bottom-left, bottom-center or bottom-right, is '$OVERLAY_POSITION'."
+    [[ "$OVERLAY_COLOR" =~ ^([a-zA-Z]+|#[0-9a-fA-F]{6})$ ]] || fail "OVERLAY_COLOR must be a colour name like white or #RRGGBB, is '$OVERLAY_COLOR'."
+    # overlay.py makes the text fit into the picture and can show icons. Without
+    # Pillow ffmpeg writes the text: the size is estimated and icons are left out.
+    if [ -f "$OVERLAY_SCRIPT" ] && command -v python3 >/dev/null 2>&1 && python3 -c "import PIL" 2>/dev/null; then
+        overlaypil=1
+        echo "Text overlay is written by overlay.py. Font: $ofont."
+    else
+        echo "Note: text overlay is written by ffmpeg. Install python3-pil for a text that always fits and for icons: sudo apt install python3-pil"
+    fi
 fi
 if [ "$YOUTUBE_UPLOAD_ENABLED" = "1" ] && [ ! -f "$YOUTUBE_SCRIPT_PATH" ]; then
     fail "YouTube upload script '$YOUTUBE_SCRIPT_PATH' not found."
@@ -142,9 +213,13 @@ if [ "$BIRD_DETECTION_ENABLED" = "1" ]; then
             --classes "$BIRD_CLASSES" --confidence "$BIRD_CONFIDENCE" --tiles "$BIRD_TILES" 2>&1); then
         fail "Bird detection self test failed: $birdtest"
     fi
-    if [ "$OVERLAY_ENABLED" != "1" ] || [[ "$OVERLAY_TEXT" != *"[BIRD-COUNT]"* ]]; then
-        echo "Note: the number of birds is only shown on the pictures if OVERLAY_ENABLED=1 and OVERLAY_TEXT contains [BIRD-COUNT]."
+    if [ "$OVERLAY_ENABLED" != "1" ] || [[ "$OVERLAY_TEXT" != *"[BIRD-"* ]]; then
+        echo "Note: the number of birds is only shown on the pictures if OVERLAY_ENABLED=1 and OVERLAY_TEXT contains [BIRD-SUM] or [BIRD-COUNT]."
     fi
+    # Debug runs count separately, so testing does not change the numbers of the day
+    [ "$debug" = "1" ] && BIRD_STATE_FILE="$BIRD_STATE_FILE.debug"
+    bird_state_load
+    echo "Birds today so far: $birdsum (most on one picture: $birdmax, pictures with birds: $birdimages). Saved in $BIRD_STATE_FILE."
 fi
 
 if [ "$errors" -gt 0 ]; then
@@ -349,6 +424,7 @@ replace_placeholders() {
     out=${out//\[YOUTUBE-PRIVACY\]/"$YOUTUBE_PRIVACY"}
     out=${out//\[YOUTUBE-TAGS\]/"$YOUTUBE_TAGS"}
     out=${out//\[BIRD-COUNT\]/"$birds"}
+    out=${out//\[BIRD-SUM\]/"$birdsum"}
     out=${out//\[BIRD-MAX\]/"$birdmax"}
     out=${out//\[BIRD-IMAGES\]/"$birdimages"}
     out=${out//\[BIRD-TIME\]/"$birdtime"}
@@ -413,8 +489,7 @@ while [ "$fin" -eq 1 ]; do
         # and the loading of the model: this is the time added to each picture
         msbird=$(date +%s%3N)
         if birds=$(python3 "$BIRD_SCRIPT" "$wdir/pic_$n.jpg" "${birdargs[@]}") && [[ "$birds" =~ ^[0-9]+$ ]]; then
-            [ "$birds" -gt "$birdmax" ] && birdmax=$birds
-            [ "$birds" -gt 0 ] && birdimages=$((birdimages + 1))
+            bird_state_add "$birds"
         else
             echo "* bird detection failed on picture $i."
             birds="?"
@@ -427,7 +502,7 @@ while [ "$fin" -eq 1 ]; do
         birdtime=$(ms_to_s "$msbird")
         birdtimeavg=$(ms_to_s $((msbirdsum / birdruns)))
         birdtimemax=$(ms_to_s "$msbirdmax")
-        echo "* bird detection: $birds on picture $i, took $birdtime s (average $birdtimeavg s, longest $birdtimemax s). Most birds so far: $birdmax."
+        echo "* bird detection: $birds on picture $i, took $birdtime s (average $birdtimeavg s, longest $birdtimemax s). Today: $birdsum in total, most on one picture $birdmax."
     fi
 
     # Add text overlay text to image if enabled in config
@@ -464,13 +539,41 @@ while [ "$fin" -eq 1 ]; do
         echo "Overlay text parsed:"
         echo "$otext"
 
-        # Write the text to a file. ffmpeg reads it as it is, so special
-        # characters in the text do not need to be escaped.
-        printf '%s' "$otext" > "$wdir/overlay.txt"
+        # Write the text to a file. overlay.py and ffmpeg read it as it is,
+        # so special characters in the text do not need to be escaped.
+        if [ "$overlaypil" -eq 1 ]; then
+            printf '%s' "$otext" > "$wdir/overlay.txt"
+            overlaycmd=(python3 "$OVERLAY_SCRIPT" "$wdir/pic_$n.jpg" "$wdir/pic_txt_$n.jpg" --text-file "$wdir/overlay.txt"
+                        --font "$ofont" --size "$OVERLAY_SIZE" --max-lines "$OVERLAY_MAX_LINES" --position "$OVERLAY_POSITION"
+                        --margin "$OVERLAY_MARGIN" --box "$OVERLAY_BOX" --color "$OVERLAY_COLOR" --icons "$OVERLAY_ICONS")
+            [ "$debug" -eq 1 ] && overlaycmd+=(--verbose)
+        else
+            # ffmpeg cannot measure the text beforehand: the size is estimated from
+            # the number of characters, and the text is never moved past the left border
+            otext=$(printf '%s' "$otext" | sed -E 's/\[ICON-[A-Za-z0-9_-]+\] ?//g')
+            printf '%s' "$otext" > "$wdir/overlay.txt"
+            omargin=$(echo "$RESH * $OVERLAY_MARGIN / 100" | bc)
+            ofsize=$(echo "s = $RESH * $OVERLAY_SIZE / 100; f = ($RESW - 2 * $omargin) / (${#otext} * 0.6); if (f < s) s = f; if (s < 8) s = 8; scale=0; s / 1" | bc -l)
+            opad=$((ofsize / 3))
+            omargin=$((omargin + opad))
+            case "$OVERLAY_POSITION" in
+                *-left)   ox="$omargin" ;;
+                *-center) ox="max($omargin\,(w-tw)/2)" ;;
+                *)        ox="max($omargin\,w-tw-$omargin)" ;;
+            esac
+            case "$OVERLAY_POSITION" in
+                top-*) oy="$omargin" ;;
+                *)     oy="h-th-$omargin" ;;
+            esac
+            obox="box=1:boxcolor=black@$(echo "scale=2; $OVERLAY_BOX / 100" | bc):boxborderw=$opad"
+            [ "$OVERLAY_BOX" -lt 25 ] && obox="borderw=$((ofsize / 16 + 1)):bordercolor=black"
+            overlaycmd=(ffmpeg -hide_banner -loglevel panic -y -i "$wdir/pic_$n.jpg" -q:v 2
+                        -vf "drawtext=fontfile='$ofont':textfile='$wdir/overlay.txt':expansion=none:fontcolor=$OVERLAY_COLOR:fontsize=$ofsize:$obox:x=$ox:y=$oy"
+                        "$wdir/pic_txt_$n.jpg")
+        fi
 
         # Add text overlay to image
-        if ffmpeg -hide_banner -loglevel panic -i "$wdir/pic_$n.jpg" \
-            -vf "drawtext=fontfile='$FPATH':textfile='$wdir/overlay.txt':expansion=none:fontcolor=white:fontsize=48:box=1:boxcolor=black@0.5:boxborderw=5:x=w-tw-10:y=h-th-50" "$wdir/pic_txt_$n.jpg"; then
+        if "${overlaycmd[@]}"; then
             echo "Successfully added text to picture $i as $wdir/pic_txt_$n.jpg."
         else
             echo "Unable to add text to picture $i as $wdir/pic_txt_$n.jpg. Skipping this picture."
@@ -529,7 +632,7 @@ i=$ipics
 echo "---------------------------------------------------------------------------"
 echo "Pictures created: $ipics."
 if [ "$birdruns" -gt 0 ]; then
-    echo "Bird detection: most birds on one picture $birdmax, pictures with birds $birdimages."
+    echo "Bird detection today: $birdsum birds on all pictures added up, most birds on one picture $birdmax, pictures with birds $birdimages."
     echo "Bird detection time per picture: average $birdtimeavg s, longest $birdtimemax s."
 fi
 if [ "$slowpics" -gt 0 ]; then
