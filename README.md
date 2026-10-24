@@ -175,28 +175,6 @@ The text is written in `OVERLAY_SIZE` at `OVERLAY_POSITION`, `OVERLAY_MARGIN` aw
 
 `overlay.py` takes about 0.1 s per picture on a PC; on a Raspberry Pi expect a few tenths of a second, little compared to the bird detection.
 
-### Icons
-
-`[ICON-NAME]` in `OVERLAY_TEXT` shows the picture `icons/name.png` (name in lower case), in the size and colour of the text. Only the transparency of the PNG file is used, so any single-coloured icon on a transparent background works; add your own to the directory. Icons need `python3-pil` and are only shown on the pictures, not in the YouTube title or description.
-
-| Placeholder | Icon | Placeholder | Icon |
-|---|---|---|---|
-| `[ICON-CLOCK]` | clock | `[ICON-CALENDAR]` | calendar |
-| `[ICON-SUN]` | sun | `[ICON-CLOUD]` | cloud |
-| `[ICON-SUNRISE]` | sunrise | `[ICON-SUNSET]` | sunset |
-| `[ICON-TEMP]` | thermometer | `[ICON-HUMIDITY]` | droplet |
-| `[ICON-WIND]` | wind | `[ICON-CPU]` | processor |
-| `[ICON-BIRD]` | bird | `[ICON-SUM]` | sum sign |
-| `[ICON-IMAGE]` | picture | | |
-
-Example:
-
-```
-OVERLAY_TEXT="[ICON-CLOCK] [FORMATTED_DATETIME] | [ICON-SUNRISE] [SUNRISE] | [ICON-SUNSET] [SUNSET] | [ICON-CPU] [INT-TEMP] °C | [ICON-BIRD] [BIRD-SUM]"
-```
-
-The icons are from [Lucide](https://lucide.dev) 1.61.0 (ISC License, some icons MIT License from Feather), converted to white PNG files of 128 × 128 pixels. The license is in `icons/LICENSE`.
-
 ### Remote server upload
 
 | Setting | Meaning |
@@ -253,6 +231,28 @@ Placeholders can be used in `OVERLAY_TEXT`, `YOUTUBE_TITLE` and `YOUTUBE_DESC`. 
 Icons (`[ICON-BIRD]` and so on) work in `OVERLAY_TEXT` only, see [Icons](#icons).
 
 The older spellings `[FORMATED_DATE]`, `[FORMATED_DATETIME]`, `[LENGTH]` (for the width), `[LAT]` and `[LONG]` still work.
+
+### Icons
+
+`[ICON-NAME]` in `OVERLAY_TEXT` shows the picture `icons/name.png` (name in lower case), in the size and colour of the text. Only the transparency of the PNG file is used, so any single-coloured icon on a transparent background works; add your own to the directory. Icons need `python3-pil` and are only shown on the pictures, not in the YouTube title or description.
+
+| Placeholder | Icon | Placeholder | Icon |
+|---|---|---|---|
+| `[ICON-CLOCK]` | clock | `[ICON-CALENDAR]` | calendar |
+| `[ICON-SUN]` | sun | `[ICON-CLOUD]` | cloud |
+| `[ICON-SUNRISE]` | sunrise | `[ICON-SUNSET]` | sunset |
+| `[ICON-TEMP]` | thermometer | `[ICON-HUMIDITY]` | droplet |
+| `[ICON-WIND]` | wind | `[ICON-CPU]` | processor |
+| `[ICON-BIRD]` | bird | `[ICON-SUM]` | sum sign |
+| `[ICON-IMAGE]` | picture | | |
+
+Example:
+
+```
+OVERLAY_TEXT="[ICON-CLOCK] [FORMATTED_DATETIME] | [ICON-SUNRISE] [SUNRISE] | [ICON-SUNSET] [SUNSET] | [ICON-CPU] [INT-TEMP] °C | [ICON-BIRD] [BIRD-SUM]"
+```
+
+The icons are from [Lucide](https://lucide.dev) 1.61.0 (ISC License, some icons MIT License from Feather), converted to white PNG files of 128 × 128 pixels. The license is in `icons/LICENSE`.
 
 ## Bird detection
 
